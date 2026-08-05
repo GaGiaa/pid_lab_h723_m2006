@@ -1,0 +1,37 @@
+# 项目级 AI 交接规则之外的流程文档不纳入版本控制
+docs/superpowers/
+
+# Keil 本机工程、调试和构建输出
+MDK-ARM/pid_lab_h723_m2006/
+MDK-ARM/DebugConfig/
+MDK-ARM/RTE/
+MDK-ARM/*.uvoptx
+MDK-ARM/*.uvguix.*
+MDK-ARM/EventRecorderStub.scvd
+MDK-ARM/**/*.o
+MDK-ARM/**/*.d
+MDK-ARM/**/*.crf
+MDK-ARM/**/*.dep
+MDK-ARM/**/*.axf
+MDK-ARM/**/*.hex
+MDK-ARM/**/*.map
+MDK-ARM/**/*.lst
+MDK-ARM/**/*.htm
+MDK-ARM/**/*.iex
+MDK-ARM/**/*.lnp
+MDK-ARM/**/*.sct
+MDK-ARM/*.o
+MDK-ARM/*.d
+MDK-ARM/*.crf
+MDK-ARM/*.dep
+MDK-ARM/*.axf
+MDK-ARM/*.hex
+MDK-ARM/*.map
+MDK-ARM/*.lst
+MDK-ARM/*.htm
+MDK-ARM/*.iex
+MDK-ARM/*.lnp
+MDK-ARM/*.sct
+
+# 主机端临时测试程序
+tests/*.exe
