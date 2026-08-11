@@ -1,8 +1,8 @@
 # AI 项目上下文交接文档
 
-> 本文件是本项目的唯一 AI 交接入口。后续接手本项目的 AI，在处理任何开发任务前，必须先阅读本文件，再检查实际代码和 Git 工作区状态。
+> 本文件是本项目的唯一 AI 交接入口。后续接手本项目的 AI，在处理任何开发任务前，必须先阅读本文件和 `docs\c_naming_convention.md`，再检查实际代码和 Git 工作区状态。
 
-最后更新日期：2026 年 8 月 6 日
+最后更新日期：2026 年 8 月 11 日
 
 ## 一、项目概况
 
@@ -26,7 +26,7 @@
 
 当前已完成 UART8 向 VOFA 发送 RTOS 系统当前时间戳的健康检查功能，功能目的为通过一个持续递增的数值确认芯片、RTOS 调度器和应用任务仍在正常运行。
 
-当前没有已知的代码级待办事项。后续新增需求应先阅读本文件，再根据实际代码、构建结果和用户最新要求更新本文件中的进度记录。
+当前没有已知的代码级待办事项。项目自有 C 代码必须遵循 `docs\c_naming_convention.md`，并在每次新增或修改后通过自动命名检查与人工命名复查。后续新增需求应先阅读本文件，再根据实际代码、构建结果和用户最新要求更新本文件中的进度记录。
 
 ### 已完成事项
 
@@ -54,7 +54,7 @@
 
 时间戳任务位于 `Core\Src\freertos.c`，任务属性如下：
 
-- 任务名称：`vofaTimestamp`。
+- 任务名称：`vofa_timestamp`。
 - 任务优先级：`osPriorityNormal`。
 - 任务栈大小：`512` 字节。
 - 发送周期：`100` 毫秒。
@@ -77,7 +77,7 @@
 1. 前 4 字节为时间戳浮点数的 IEEE-754 小端表示。
 2. 后 4 字节为 JustFloat 帧尾：`00 00 80 7F`。
 
-公开编码接口为 `VofaJustFloatEncode1()`。该接口不依赖 STM32 HAL 或 RTOS，便于主机端独立测试。
+公开编码接口为 `vofa_justfloat_encode_float()`，帧长度宏为 `VOFA_JUSTFLOAT_FRAME_SIZE_BYTES`。该接口不依赖 STM32 HAL 或 RTOS，便于主机端独立测试。
 
 ### 相关文件
 
@@ -86,6 +86,9 @@
 - `Core\Src\vofa_justfloat.c`：单通道 JustFloat 编码实现。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`：当前 Keil 工程文件，必须包含 `vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`：主机端编码测试。
+- `docs\c_naming_convention.md`：项目自有 C 代码的强制命名规范和复查流程。
+- `tests\check_c_naming.py`：项目自有 C 代码的自动命名检查器。
+- `tests\check_c_naming_test.py`：命名检查器的主机端单元测试。
 
 ## 四、验证状态
 
@@ -93,6 +96,7 @@
 
 - 主机端编码测试输出 `vofa_justfloat_test: PASS`。
 - Keil 工程构建结果为 `0 Error(s), 0 Warning(s)`。
+- C 命名检查器输出 `C naming check: PASS`，其单元测试全部通过。
 - 板上原有点亮功能保持正常。
 - VOFA 使用 UART8 接收 JustFloat 数据已经完成实测。
 - VOFA 无数据问题已经定位为接线松动，不是当前代码、DMA 配置或 JustFloat 帧格式问题。
@@ -112,7 +116,7 @@
 
 ### 忽略规则
 
-根目录 `.gitignore` 负责忽略 Keil 构建产物、本机调试配置、`docs\superpowers` 和主机端临时测试程序。
+根目录 `.gitignore` 负责忽略 Keil 构建产物、本机调试配置、`docs\superpowers`、Python 字节码缓存和主机端临时测试程序。
 
 以下固件源文件不能被忽略：
 
@@ -146,15 +150,25 @@
 接手新任务时，按以下顺序执行：
 
 1. 先完整阅读本文件。
-2. 检查 `git status`、当前分支、最近提交和相关源文件，确认实际状态没有偏离本文件。
-3. 明确任务范围、成功标准和是否涉及硬件验证。
-4. 对相互独立的只读检查或实现任务合理使用子代理；涉及同一文件的修改保持串行。
-5. 修改前说明将修改的文件和原因。
-6. 运行与改动风险相匹配的测试和构建验证。
-7. 只有用户明确要求时才提交 Git，并按本文件的提交规则检查提交结果。
-8. 完成任务后更新本文件的开发进度、验证状态和已知限制；不要创建 `docs\superpowers` 文件。
+2. 完整阅读 `docs\c_naming_convention.md`，确认本任务涉及的项目自有标识符、外部接口例外和自动检查范围。
+3. 检查 `git status`、当前分支、最近提交和相关源文件，确认实际状态没有偏离本文件。
+4. 明确任务范围、成功标准和是否涉及硬件验证。
+5. 对相互独立的只读检查或实现任务合理使用子代理；涉及同一文件的修改保持串行。
+6. 修改前说明将修改的文件和原因。
+7. 新增或修改项目自有 C 代码后，运行 `py tests\check_c_naming.py` 并完成命名规范规定的人工复查；检查器发现的违规必须修复，外部固定名称必须记录最小范围的例外理由。
+8. 运行与改动风险相匹配的测试和构建验证。
+9. 只有用户明确要求时才提交 Git，并按本文件的提交规则检查提交结果。
+10. 完成任务后更新本文件的开发进度、验证状态和已知限制；不要创建 `docs\superpowers` 文件。
 
 ## 九、持续更新记录
+
+### 2026 年 8 月 11 日
+
+- 建立 `docs\c_naming_convention.md`，明确项目自有 C 代码的模块前缀、`snake_case`、宏、类型、任务名称、保留标识符和人工复查规则。
+- 新增标准库 Python 命名检查器及其单元测试；检查器只覆盖当前项目自有 VOFA 文件、主机端协议测试和 `freertos.c` 的 `USER CODE` 区域。
+- 将 JustFloat 公开接口迁移为 `vofa_justfloat_encode_float()`，将帧长度宏迁移为 `VOFA_JUSTFLOAT_FRAME_SIZE_BYTES`，并将 VOFA 时间戳任务标识符迁移为统一的 `snake_case`。
+- 完成命名检查器单元测试、主机端 JustFloat 协议测试和 Keil 构建验证；检查器输出 `C naming check: PASS`，Keil 构建结果为 `0 Error(s), 0 Warning(s)`。
+- 本次仅修改项目自有命名和文档，未更改 UART8 DMA、JustFloat 帧格式、任务周期或 CubeMX 配置，因此未新增硬件复测。
 
 ### 2026 年 8 月 6 日
 

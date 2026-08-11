@@ -48,9 +48,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-osThreadId_t vofaTimestampTaskHandle;
-const osThreadAttr_t vofaTimestampTask_attributes = {
-  .name = "vofaTimestamp",
+osThreadId_t vofa_timestamp_task_handle;
+const osThreadAttr_t vofa_timestamp_task_attributes = {
+  .name = "vofa_timestamp",
   .stack_size = 512U,
   .priority = (osPriority_t) osPriorityNormal,
 };
@@ -66,7 +66,7 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-static void startVofaTimestampTask(void *argument);
+static void vofa_timestamp_task_entry(void *argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -117,9 +117,9 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(startDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  vofaTimestampTaskHandle = osThreadNew(startVofaTimestampTask,
-                                        NULL,
-                                        &vofaTimestampTask_attributes);
+  vofa_timestamp_task_handle = osThreadNew(vofa_timestamp_task_entry,
+                                            NULL,
+                                            &vofa_timestamp_task_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -148,20 +148,20 @@ __weak void startDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-static void startVofaTimestampTask(void *argument)
+static void vofa_timestamp_task_entry(void *argument)
 {
-  uint8_t frame[VOFA_JUSTFLOAT_FRAME_SIZE];
+  uint8_t frame_buffer[VOFA_JUSTFLOAT_FRAME_SIZE_BYTES];
 
   (void)argument;
 
   for (;;)
   {
-    if (VofaJustFloatEncode1((float)osKernelGetTickCount(), frame) ==
-        VOFA_JUSTFLOAT_FRAME_SIZE)
+    if (vofa_justfloat_encode_float((float)osKernelGetTickCount(), frame_buffer) ==
+        VOFA_JUSTFLOAT_FRAME_SIZE_BYTES)
     {
       (void)HAL_UART_Transmit_DMA(&huart8,
-                                  frame,
-                                  VOFA_JUSTFLOAT_FRAME_SIZE);
+                                  frame_buffer,
+                                  VOFA_JUSTFLOAT_FRAME_SIZE_BYTES);
     }
 
     osDelay(VOFA_TIMESTAMP_PERIOD_MS);

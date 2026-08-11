@@ -3,18 +3,20 @@
 #include <stddef.h>
 #include <string.h>
 
-uint32_t VofaJustFloatEncode1(float value, uint8_t frame[VOFA_JUSTFLOAT_FRAME_SIZE])
+uint32_t vofa_justfloat_encode_float(
+    float value,
+    uint8_t frame_buffer[VOFA_JUSTFLOAT_FRAME_SIZE_BYTES])
 {
-  if (frame == NULL)
+  if (frame_buffer == NULL)
   {
     return 0U;
   }
 
-  memcpy(frame, &value, sizeof(value));
-  frame[4] = 0x00U;
-  frame[5] = 0x00U;
-  frame[6] = 0x80U;
-  frame[7] = 0x7FU;
+  memcpy(frame_buffer, &value, sizeof(value));
+  frame_buffer[4] = 0x00U;
+  frame_buffer[5] = 0x00U;
+  frame_buffer[6] = 0x80U;
+  frame_buffer[7] = 0x7FU;
 
-  return VOFA_JUSTFLOAT_FRAME_SIZE;
+  return VOFA_JUSTFLOAT_FRAME_SIZE_BYTES;
 }
