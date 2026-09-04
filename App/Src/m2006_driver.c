@@ -28,6 +28,18 @@
 #define M2006_DRIVER_CURRENT_LIMIT_DEFAULT (3000)   /* 默认电流钳位 3A */
 #define M2006_DRIVER_SPEED_LIMIT_DEFAULT_RPM (500)  /* 默认输出轴转速限幅 */
 
+/* 输出轴角度换算：转子一圈 360° 经 36:1 减速 = 输出轴 10°/圈，再按 8191 归一 */
+#define M2006_DRIVER_ANGLE_SCALE_DEG \
+    (360.0f / (float)M2006_PROTOCOL_GEAR_RATIO / 8191.0f)
+/* 输出轴力矩换算（基于 M2006 官方转矩常数）：
+ * 1) C610 手册口径：实际电流 A = torque_raw / 1000（10000 LSB = 10A）；
+ * 2) M2006 官方手册转矩常数 = 0.18 N·m/A（输出轴等效值，已含 36:1 减速比与传动效率）；
+ * 3) 输出轴力矩 = 电流(A) * 0.18 N·m/A；
+ * 4) 综合：torque_out_nm = torque_raw * 0.18 / 1000。
+ * 说明：0.18 N·m/A 为输出轴等效转矩常数；若为电机本体值则经减速后会远超额定，
+ *       故判定为输出轴等效值，与额定点（3A -> 约 0.54 N·m）自洽。 */
+#define M2006_DRIVER_TORQUE_SCALE_NM (0.18f / 1000.0f)
+
 /* ---- 调试变量面板定义（Keil Watch 添加 m2006_debug 即可查看/修改） ---- */
 volatile m2006_debug_t m2006_debug = {
   .is_enabled = 0U,
@@ -37,6 +49,9 @@ volatile m2006_debug_t m2006_debug = {
   .angle_raw = 0U,
   .speed_rpm = 0,
   .torque_raw = 0,
+  .angle_out_deg = 0.0f,
+  .speed_out_rpm = 0.0f,
+  .torque_out_nm = 0.0f,
   .output_current = 0,
   .rx_msg_count = 0U,
   .is_rx_timeout = 1U,
@@ -71,7 +86,6 @@ void m2006_driver_update(void)
   int16_t output_current;
   int16_t current_limit;
   int16_t speed_limit_rpm;
-  int16_t output_shaft_speed_rpm;
   uint8_t control_data[M2006_PROTOCOL_FRAME_BYTES];
   FDCAN_TxHeaderTypeDef tx_header;
 
@@ -84,6 +98,14 @@ void m2006_driver_update(void)
   {
     m2006_debug.is_rx_timeout = 0U;
   }
+
+  /* 换算输出轴物理量（角度/转速/力矩） */
+  m2006_debug.angle_out_deg = (float)m2006_debug.angle_raw
+                              * M2006_DRIVER_ANGLE_SCALE_DEG;
+  m2006_debug.speed_out_rpm = (float)m2006_debug.speed_rpm
+                              / (float)M2006_PROTOCOL_GEAR_RATIO;
+  m2006_debug.torque_out_nm = (float)m2006_debug.torque_raw
+                              * M2006_DRIVER_TORQUE_SCALE_NM;
 
   /* 目标电流钳位到 ±current_limit */
   current_limit = m2006_debug.current_limit;
@@ -105,10 +127,8 @@ void m2006_driver_update(void)
   else
   {
     speed_limit_rpm = m2006_debug.speed_limit_rpm;
-    output_shaft_speed_rpm = m2006_debug.speed_rpm
-                             / (int16_t)M2006_PROTOCOL_GEAR_RATIO;
-    if ((output_shaft_speed_rpm > speed_limit_rpm)
-        || (output_shaft_speed_rpm < -speed_limit_rpm))
+    if ((m2006_debug.speed_out_rpm > (float)speed_limit_rpm)
+        || (m2006_debug.speed_out_rpm < -(float)speed_limit_rpm))
     {
       output_current = 0;
     }

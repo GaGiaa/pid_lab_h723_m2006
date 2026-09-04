@@ -107,15 +107,24 @@
 
 硬件接线注意：C610 的 CAN_H/CAN_L 需要接到板子 CAN2 接口（对应 FDCAN2 收发器），总线两端需 120Ω 终端电阻（电调端由拨码开关控制，控制板端取决于板卡设计）。
 
+电机参数（M2006 P36 官方手册）：
+- 额定电压 24V；转矩常数 0.18 N·m/A（输出轴等效值）；转速常数 32.96 rpm/V；转速转矩梯度 110 rpm/N·m；机械时间常数 52.78 ms。
+- 相电阻 461 mΩ；相电感 64.22 μH；极对数 7；减速比 36:1；减速电机重量 90 g；最大径向载荷（动载荷）495 N；使用环境温度 0-55℃。
+- 注：相电阻/相电感/极对数为电机本体参数，可用于后续电流环建模或 FOC；转矩常数判定为输出轴等效值（推理见上）。
+
 控制协议：
 - 控制帧：标准帧 0x200，DLC=8，每电调 ID 占 2 字节（高字节在前）；电流值 -10000~+10000 对应 -10A~+10A，即 1000 LSB/A。ID=2 的电流位于 DATA[2..3]。
 - 反馈帧：标准帧 0x200+电调ID（即 0x202），DLC=8；DATA[0..1] 转子机械角度 0~8191，DATA[2..3] 转子转速 rpm（int16），DATA[4..5] 实际输出转矩（int16）。
 - 反馈角度/转速均为转子（高速侧）原始值，输出轴转速 = 转速值 ÷ 36（M2006 减速比）。
+- 反馈字段说明：DATA[4..5]“实际输出转矩”实为电调电流环反馈的实际输出电流（C610 只能测电流、不能测机械力矩），换算口径与控制指令同量纲：1000 LSB = 1A（即 -10000~+10000 对应 -10A~+10A）。真正的机械力矩 = 电流 × 转矩常数 × 减速比 × 效率。M2006 官方手册给出转矩常数 0.18 N·m/A（输出轴等效值，已含 36:1 减速比与传动效率；若为电机本体值则经减速后会远超额定，故判定为输出轴等效值，与额定点 3A→约 0.54 N·m 自洽）。驱动输出轴力矩换算：torque_out_nm = 电流(A) × 0.18 = torque_raw × 0.18 / 1000。
 
 Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 一键添加结构体实例 `m2006_debug`，即可查看并修改全部调试变量（无需逐个添加）。
 - 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 3000）、`m2006_debug.speed_limit_rpm`（输出轴转速限幅，默认 500）。
-- 只读成员：`m2006_debug.angle_raw`、`m2006_debug.speed_rpm`、`m2006_debug.torque_raw`、`m2006_debug.output_current`、`m2006_debug.rx_msg_count`、`m2006_debug.is_rx_timeout`、`m2006_debug.tx_fail_count`。
+- 只读成员：
+  - 电调回传原始值（未解析换算）：`m2006_debug.angle_raw`（转子机械角度编码 0~8191）、`m2006_debug.speed_rpm`（转子转速 rpm，÷36 为输出轴）、`m2006_debug.torque_raw`（“实际输出转矩”编码，实为电流环反馈电流，1000 LSB = 1A）；
+  - 输出轴换算值（驱动 1kHz 内换算）：`m2006_debug.angle_out_deg`（输出轴角度°）、`m2006_debug.speed_out_rpm`（输出轴转速 rpm）、`m2006_debug.torque_out_nm`（输出轴力矩 N·m，= 电流 A × 0.18，M2006 官方转矩常数）；
+  - 其他：`m2006_debug.output_current`、`m2006_debug.rx_msg_count`、`m2006_debug.is_rx_timeout`、`m2006_debug.tx_fail_count`。
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_debug.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_debug.is_enabled` 置 1，从较小的 `m2006_debug.current_setpoint`（如 500）开始缓慢增大。
 
 安全保护（驱动内自动执行，参数可调）：
@@ -218,6 +227,8 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过（0 Error, 0 Warning）。
 - 本项改动不涉及 UART8/VOFA 时间戳任务，原有点亮与 VOFA 功能不受影响；M2006 功能尚未硬件实测。
 - 目录分层：新建 App 层（App\Inc / App\Src），将 vofa_justfloat、m2006_protocol、m2006_driver 及两个 RTOS 任务（m2006_control、vofa_timestamp）全部迁入 App；Core 目录仅保留 CubeMX 生成文件，freertos.c 的 USER CODE 区只留 osThreadNew 胶水调用，CubeMX 重新生成不受影响。
+- 为 m2006_debug 增加三个输出轴换算物理量（angle_out_deg / speed_out_rpm / torque_out_nm），并明确 angle_raw / speed_rpm / torque_raw 三个成员为电调回传原始值（未解析换算）；超速保护改用换算后的输出轴转速判断。
+- 力矩换算改用 M2006 官方手册转矩常数 0.18 N·m/A（输出轴等效值），替换此前按额定点反推的估算值 0.3333 N·m/A；交接文档补录 M2006 完整电机参数表。
 
 ### 2026 年 8 月 11 日
 

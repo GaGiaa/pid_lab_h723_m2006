@@ -111,8 +111,25 @@ M2006_DRIVER_HEADER_SOURCE = """\
 
 #include <stdint.h>
 
-extern volatile uint8_t m2006_is_enabled;
-extern volatile int16_t m2006_current_setpoint;
+typedef struct m2006_debug
+{
+  uint8_t is_enabled;
+  int16_t current_setpoint;
+  int16_t current_limit;
+  int16_t speed_limit_rpm;
+  uint16_t angle_raw;
+  int16_t speed_rpm;
+  int16_t torque_raw;
+  float angle_out_deg;
+  float speed_out_rpm;
+  float torque_out_nm;
+  int16_t output_current;
+  uint32_t rx_msg_count;
+  uint8_t is_rx_timeout;
+  uint32_t tx_fail_count;
+} m2006_debug_t;
+
+extern volatile m2006_debug_t m2006_debug;
 
 void m2006_driver_init(void);
 void m2006_driver_update(void);
@@ -124,18 +141,31 @@ void m2006_driver_update(void);
 M2006_DRIVER_SOURCE = """\
 #include \"m2006_driver.h\"
 
-volatile uint8_t m2006_is_enabled = 0U;
-volatile int16_t m2006_current_setpoint = 0;
+volatile m2006_debug_t m2006_debug = {
+  .is_enabled = 0U,
+  .current_setpoint = 0,
+  .current_limit = 3000,
+  .speed_limit_rpm = 500,
+  .angle_raw = 0U,
+  .speed_rpm = 0,
+  .torque_raw = 0,
+  .angle_out_deg = 0.0f,
+  .speed_out_rpm = 0.0f,
+  .torque_out_nm = 0.0f,
+  .output_current = 0,
+  .rx_msg_count = 0U,
+  .is_rx_timeout = 1U,
+  .tx_fail_count = 0U,
+};
 
 void m2006_driver_init(void)
 {
-  (void)m2006_current_setpoint;
-  m2006_is_enabled = 0U;
+  m2006_debug.is_enabled = 0U;
 }
 
 void m2006_driver_update(void)
 {
-  m2006_current_setpoint = m2006_is_enabled;
+  m2006_debug.current_setpoint = 1;
 }
 
 void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t rx_fifo0_it_flags)
@@ -501,10 +531,10 @@ void startDefaultTask(void *argument)
 
   def test_reports_m2006_camel_case_variable(self) -> None:
     m2006_driver_source = M2006_DRIVER_SOURCE.replace(
-        "(void)m2006_current_setpoint;",
-        "uint32_t camelCase = 0U;\n"
-        "  (void)camelCase;\n"
-        "  (void)m2006_current_setpoint;",
+        "m2006_debug.current_setpoint = 1;",
+        "m2006_debug.current_setpoint = 1;\n"
+        "  uint32_t camelCase = 0U;\n"
+        "  (void)camelCase;",
     )
 
     violations = self.scan_project(m2006_driver_source=m2006_driver_source)

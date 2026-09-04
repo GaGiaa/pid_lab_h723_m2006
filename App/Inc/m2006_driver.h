@@ -43,16 +43,31 @@ typedef struct m2006_debug
   /* 输出轴转速限幅 rpm，超速时输出置 0（默认 500 rpm） */
   int16_t speed_limit_rpm;
 
-  /* ---- 只读成员（Keil Watch 观察） ---- */
+  /* ---- 电调回传原始值（直接来自 CAN 反馈帧，未解析换算） ---- */
 
-  /* 转子机械角度，范围 [0, 8191] */
+  /* 转子机械角度原始编码值，范围 [0, 8191]，对应转子高速侧一圈 */
   uint16_t angle_raw;
 
-  /* 转子转速 rpm（高速侧，输出轴转速 = 该值 / 36） */
+  /* 转子转速原始值，单位 rpm（高速侧，除以 36 才是输出轴转速） */
   int16_t speed_rpm;
 
-  /* 电调反馈实际输出转矩原始值 */
+  /* 电调"实际输出转矩"原始编码值：实为电流环反馈电流，
+     -10000~+10000 对应 -10A~+10A（1000 LSB = 1A） */
   int16_t torque_raw;
+
+  /* ---- 换算后的输出轴物理量（驱动 1kHz 任务内换算） ---- */
+
+  /* 输出轴角度（单圈内），单位度，= angle_raw/8191 × 10° */
+  float angle_out_deg;
+
+  /* 输出轴转速，单位 rpm，= speed_rpm / 36 */
+  float speed_out_rpm;
+
+  /* 输出轴力矩，单位 N·m，= 电流(A) × 0.18（M2006 官方转矩常数，输出轴等效值，
+     换算依据见 m2006_driver.c 的 M2006_DRIVER_TORQUE_SCALE_NM 注释） */
+  float torque_out_nm;
+
+  /* ---- 其他观测成员 ---- */
 
   /* 驱动实际下发的电流值（钳位/安全门后的结果） */
   int16_t output_current;
@@ -77,7 +92,7 @@ extern volatile m2006_debug_t m2006_debug;
 void m2006_driver_init(void);
 
 /**
-  * @brief  周期更新控制：钳位/安全门/编码/发送，建议 1kHz 周期调用
+  * @brief  周期更新控制：换算/钳位/安全门/编码/发送，建议 1kHz 周期调用
   */
 void m2006_driver_update(void);
 
