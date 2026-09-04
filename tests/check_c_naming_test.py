@@ -66,6 +66,96 @@ int main(void)
 """
 
 
+M2006_PROTOCOL_HEADER_SOURCE = """\
+#ifndef M2006_PROTOCOL_H
+#define M2006_PROTOCOL_H
+
+#include <stdint.h>
+
+#define M2006_PROTOCOL_FRAME_BYTES (8U)
+
+typedef struct m2006_measure
+{
+  uint16_t angle_raw;
+} m2006_measure_t;
+
+uint32_t m2006_protocol_parse_feedback(
+    const uint8_t feedback_data[M2006_PROTOCOL_FRAME_BYTES],
+    m2006_measure_t *measure);
+
+#endif /* M2006_PROTOCOL_H */
+"""
+
+
+M2006_PROTOCOL_SOURCE = """\
+#include \"m2006_protocol.h\"
+
+uint32_t m2006_protocol_parse_feedback(
+    const uint8_t feedback_data[M2006_PROTOCOL_FRAME_BYTES],
+    m2006_measure_t *measure)
+{
+  if ((feedback_data == 0) || (measure == 0))
+  {
+    return 0U;
+  }
+
+  measure->angle_raw = (uint16_t)feedback_data[0];
+  return 1U;
+}
+"""
+
+
+M2006_DRIVER_HEADER_SOURCE = """\
+#ifndef M2006_DRIVER_H
+#define M2006_DRIVER_H
+
+#include <stdint.h>
+
+extern volatile uint8_t m2006_is_enabled;
+extern volatile int16_t m2006_current_setpoint;
+
+void m2006_driver_init(void);
+void m2006_driver_update(void);
+
+#endif /* M2006_DRIVER_H */
+"""
+
+
+M2006_DRIVER_SOURCE = """\
+#include \"m2006_driver.h\"
+
+volatile uint8_t m2006_is_enabled = 0U;
+volatile int16_t m2006_current_setpoint = 0;
+
+void m2006_driver_init(void)
+{
+  (void)m2006_current_setpoint;
+  m2006_is_enabled = 0U;
+}
+
+void m2006_driver_update(void)
+{
+  m2006_current_setpoint = m2006_is_enabled;
+}
+
+void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t rx_fifo0_it_flags)
+{
+  (void)hfdcan;
+  (void)rx_fifo0_it_flags;
+}
+"""
+
+
+M2006_TEST_SOURCE = """\
+#include <stdint.h>
+
+int main(void)
+{
+  return 0;
+}
+"""
+
+
 FREERTOS_SOURCE = """\
 /* USER CODE BEGIN PD */
 #define VOFA_TIMESTAMP_PERIOD_MS (100U)
@@ -75,6 +165,10 @@ FREERTOS_SOURCE = """\
 osThreadId_t vofa_timestamp_task_handle;
 const osThreadAttr_t vofa_timestamp_task_attributes = {
   .name = \"vofa_timestamp\",
+};
+osThreadId_t m2006_control_task_handle;
+const osThreadAttr_t m2006_control_task_attributes = {
+  .name = \"m2006_control\",
 };
 /* USER CODE END Variables */
 
@@ -119,12 +213,22 @@ class NamingCheckerTestCase(unittest.TestCase):
       vofa_source: str = VOFA_SOURCE,
       test_source: str = TEST_SOURCE,
       freertos_source: str = FREERTOS_SOURCE,
+      m2006_protocol_header_source: str = M2006_PROTOCOL_HEADER_SOURCE,
+      m2006_protocol_source: str = M2006_PROTOCOL_SOURCE,
+      m2006_driver_header_source: str = M2006_DRIVER_HEADER_SOURCE,
+      m2006_driver_source: str = M2006_DRIVER_SOURCE,
+      m2006_test_source: str = M2006_TEST_SOURCE,
   ) -> None:
     files = {
         "Core/Inc/vofa_justfloat.h": header_source,
         "Core/Src/vofa_justfloat.c": vofa_source,
         "Core/Src/freertos.c": freertos_source,
         "tests/vofa_justfloat_test.c": test_source,
+        "Core/Inc/m2006_protocol.h": m2006_protocol_header_source,
+        "Core/Src/m2006_protocol.c": m2006_protocol_source,
+        "Core/Inc/m2006_driver.h": m2006_driver_header_source,
+        "Core/Src/m2006_driver.c": m2006_driver_source,
+        "tests/m2006_protocol_test.c": m2006_test_source,
     }
 
     for relative_path, source in files.items():
@@ -315,6 +419,47 @@ void startDefaultTask(void *argument)
     violations = self.scan_project(vofa_source=vofa_source)
 
     self.assertEqual(violations, [])
+
+  def test_m2006_compliant_project_has_no_violations(self) -> None:
+    self.assertEqual(self.scan_project(), [])
+
+  def test_reports_m2006_camel_case_variable(self) -> None:
+    m2006_driver_source = M2006_DRIVER_SOURCE.replace(
+        "(void)m2006_current_setpoint;",
+        "uint32_t camelCase = 0U;\n"
+        "  (void)camelCase;\n"
+        "  (void)m2006_current_setpoint;",
+    )
+
+    violations = self.scan_project(m2006_driver_source=m2006_driver_source)
+
+    self.assert_has_violation(violations, "identifier_style", "camelCase")
+
+  def test_reports_m2006_public_function_without_prefix(self) -> None:
+    m2006_driver_source = M2006_DRIVER_SOURCE.replace(
+        "void m2006_driver_update(void)",
+        "void driver_update(void)",
+    )
+
+    violations = self.scan_project(m2006_driver_source=m2006_driver_source)
+
+    self.assert_has_violation(
+        violations,
+        "public_function_module_prefix",
+        "driver_update",
+    )
+
+  def test_reports_m2006_macro_without_module_prefix(self) -> None:
+    m2006_protocol_header_source = M2006_PROTOCOL_HEADER_SOURCE.replace(
+        "M2006_PROTOCOL_FRAME_BYTES (8U)",
+        "FRAME_BYTES (8U)",
+    )
+
+    violations = self.scan_project(
+        m2006_protocol_header_source=m2006_protocol_header_source
+    )
+
+    self.assert_has_violation(violations, "macro_module_prefix", "FRAME_BYTES")
 
   def test_reports_legacy_identifier(self) -> None:
     header_source = HEADER_SOURCE.replace(

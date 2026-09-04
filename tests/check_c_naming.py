@@ -19,9 +19,19 @@ TARGET_RELATIVE_PATHS = (
     Path("Core/Inc/vofa_justfloat.h"),
     Path("Core/Src/vofa_justfloat.c"),
     Path("tests/vofa_justfloat_test.c"),
+    Path("Core/Inc/m2006_protocol.h"),
+    Path("Core/Src/m2006_protocol.c"),
+    Path("Core/Inc/m2006_driver.h"),
+    Path("Core/Src/m2006_driver.c"),
+    Path("tests/m2006_protocol_test.c"),
     Path("Core/Src/freertos.c"),
 )
 FREERTOS_RELATIVE_PATH = Path("Core/Src/freertos.c")
+
+MODULE_PREFIXES = (
+    "vofa",
+    "m2006",
+)
 
 LEGACY_IDENTIFIERS = {
     "__VOFA_JUSTFLOAT_H__": "VOFA_JUSTFLOAT_H",
@@ -43,6 +53,7 @@ EXTERNAL_IDENTIFIER_EXCEPTIONS = {
     "defaultTask": "CubeMX default task runtime name",
     "startDefaultTask": "CubeMX default task entry point",
     "huart8": "CubeMX-generated UART8 handle",
+    "HAL_FDCAN_RxFifo0Callback": "STM32 HAL FDCAN FIFO0 receive weak callback",
     "vApplicationStackOverflowHook": "FreeRTOS callback",
     "xTask": "FreeRTOS stack-overflow callback parameter",
     "pcTaskName": "FreeRTOS stack-overflow callback parameter",
@@ -291,7 +302,7 @@ def _scan_header_guard(
         )
 
     violations.extend(_identifier_violations(relative_path, line, guard_name, "macro"))
-    if not guard_name.startswith("VOFA_"):
+    if not _macro_has_module_prefix(guard_name):
         violations.append(
             NamingViolation(
                 relative_path=relative_path,
@@ -375,7 +386,7 @@ def _scan_macros(
             )
             continue
 
-        if not macro_name.startswith("VOFA_"):
+        if not _macro_has_module_prefix(macro_name):
             violations.append(
                 NamingViolation(
                     relative_path=relative_path,
@@ -417,7 +428,7 @@ def _scan_functions(
                 not is_static
                 and function_name != "main"
                 and function_name not in LEGACY_IDENTIFIERS
-                and not function_name.startswith("vofa_")
+                and not _identifier_has_module_prefix(function_name)
             ):
                 violations.append(
                     NamingViolation(
@@ -539,7 +550,7 @@ def _scan_task_names(
             )
             continue
 
-        if not task_name.startswith("vofa_"):
+        if not _identifier_has_module_prefix(task_name):
             violations.append(
                 NamingViolation(
                     relative_path=relative_path,
@@ -550,6 +561,22 @@ def _scan_task_names(
             )
 
     return violations
+
+
+def _macro_has_module_prefix(identifier: str) -> bool:
+    """Return True when the identifier starts with an uppercase module prefix."""
+    return any(
+        identifier.startswith(module_prefix.upper() + "_")
+        for module_prefix in MODULE_PREFIXES
+    )
+
+
+def _identifier_has_module_prefix(identifier: str) -> bool:
+    """Return True when the identifier starts with a lowercase module prefix."""
+    return any(
+        identifier.startswith(module_prefix + "_")
+        for module_prefix in MODULE_PREFIXES
+    )
 
 
 def _identifier_violations(

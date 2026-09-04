@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "usart.h"
 #include "vofa_justfloat.h"
+#include "m2006_driver.h"
 
 /* USER CODE END Includes */
 
@@ -55,6 +56,13 @@ const osThreadAttr_t vofa_timestamp_task_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
 };
 
+osThreadId_t m2006_control_task_handle;
+const osThreadAttr_t m2006_control_task_attributes = {
+  .name = "m2006_control",
+  .stack_size = 1024U,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -67,6 +75,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void vofa_timestamp_task_entry(void *argument);
+static void m2006_control_task_entry(void *argument);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -120,6 +129,9 @@ void MX_FREERTOS_Init(void) {
   vofa_timestamp_task_handle = osThreadNew(vofa_timestamp_task_entry,
                                             NULL,
                                             &vofa_timestamp_task_attributes);
+  m2006_control_task_handle = osThreadNew(m2006_control_task_entry,
+                                           NULL,
+                                           &m2006_control_task_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -148,6 +160,19 @@ __weak void startDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+static void m2006_control_task_entry(void *argument)
+{
+  m2006_driver_init();
+
+  (void)argument;
+
+  for (;;)
+  {
+    m2006_driver_update();
+    osDelay(1U);
+  }
+}
+
 static void vofa_timestamp_task_entry(void *argument)
 {
   uint8_t frame_buffer[VOFA_JUSTFLOAT_FRAME_SIZE_BYTES];

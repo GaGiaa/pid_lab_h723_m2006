@@ -2,7 +2,7 @@
 
 > 本文件是本项目的唯一 AI 交接入口。后续接手本项目的 AI，在处理任何开发任务前，必须先阅读本文件和 `docs\c_naming_convention.md`，再检查实际代码和 Git 工作区状态。
 
-最后更新日期：2026 年 8 月 11 日
+最后更新日期：2026 年 9 月 4 日
 
 ## 一、项目概况
 
@@ -37,6 +37,11 @@
 - 增加主机端 JustFloat 字节编码测试。
 - 完成主机端测试和 Keil 工程构建验证。
 - 已完成硬件验证：最初 VOFA 无数据的原因是 UART8 物理接线松动；接线恢复后，VOFA 已经可以正常接收数据。
+- 新增 M2006 电机（配合 C610 电调，电调 ID=2）电流开环调试驱动，接入 FDCAN2（PB12/PB13，经典 CAN 1Mbps）。
+- 新增 m2006_protocol 纯协议编解码模块与 m2006_driver HAL 驱动模块。
+- 新增 1kHz 电流开环控制任务 m2006_control，可在 Keil Watch 窗口修改全局变量在线调试。
+- 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并新增对应单元测试。
+- 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -89,6 +94,32 @@
 - `docs\c_naming_convention.md`：项目自有 C 代码的强制命名规范和复查流程。
 - `tests\check_c_naming.py`：项目自有 C 代码的自动命名检查器。
 - `tests\check_c_naming_test.py`：命名检查器的主机端单元测试。
+- `Core\Src\m2006_driver.c`、`Core\Inc\m2006_driver.h`：M2006 电机电流开环调试驱动。
+- `Core\Src\m2006_protocol.c`、`Core\Inc\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
+- `tests\m2006_protocol_test.c`：主机端协议编解码测试。
+
+### M2006 电机调试功能（C610 电调，FDCAN2）
+
+电机通过 C610 电调（电调 ID=2）接入 FDCAN2。FDCAN2 引脚为 PB12（RX）/ PB13（TX），AF9，经典 CAN 帧格式，波特率 1Mbps。
+
+硬件接线注意：C610 的 CAN_H/CAN_L 需要接到板子 CAN2 接口（对应 FDCAN2 收发器），总线两端需 120Ω 终端电阻（电调端由拨码开关控制，控制板端取决于板卡设计）。
+
+控制协议：
+- 控制帧：标准帧 0x200，DLC=8，每电调 ID 占 2 字节（高字节在前）；电流值 -10000~+10000 对应 -10A~+10A，即 1000 LSB/A。ID=2 的电流位于 DATA[2..3]。
+- 反馈帧：标准帧 0x200+电调ID（即 0x202），DLC=8；DATA[0..1] 转子机械角度 0~8191，DATA[2..3] 转子转速 rpm（int16），DATA[4..5] 实际输出转矩（int16）。
+- 反馈角度/转速均为转子（高速侧）原始值，输出轴转速 = 转速值 ÷ 36（M2006 减速比）。
+
+Keil 调试方法（在 Debug 界面 Watch 窗口）：
+- 一键添加结构体实例 `m2006_debug`，即可查看并修改全部调试变量（无需逐个添加）。
+- 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 3000）、`m2006_debug.speed_limit_rpm`（输出轴转速限幅，默认 500）。
+- 只读成员：`m2006_debug.angle_raw`、`m2006_debug.speed_rpm`、`m2006_debug.torque_raw`、`m2006_debug.output_current`、`m2006_debug.rx_msg_count`、`m2006_debug.is_rx_timeout`、`m2006_debug.tx_fail_count`。
+- 调试流程：烧录后运行，先在 Watch 中确认 `m2006_debug.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_debug.is_enabled` 置 1，从较小的 `m2006_debug.current_setpoint`（如 500）开始缓慢增大。
+
+安全保护（驱动内自动执行，参数可调）：
+- 电流钳位：输出电流限制在 ±m2006_debug.current_limit（默认 ±3000 = 3A，即 M2006 额定电流）。
+- 反馈超时：连续 500ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0。
+- 超速保护：输出轴转速绝对值超过 m2006_debug.speed_limit_rpm 时输出置 0。
+- 断使能：m2006_debug.is_enabled 为 0 时输出恒为 0。
 
 ## 四、验证状态
 
@@ -100,6 +131,10 @@
 - 板上原有点亮功能保持正常。
 - VOFA 使用 UART8 接收 JustFloat 数据已经完成实测。
 - VOFA 无数据问题已经定位为接线松动，不是当前代码、DMA 配置或 JustFloat 帧格式问题。
+- 主机端 m2006_protocol_test 输出 `m2006_protocol_test: PASS`。
+- 命名检查器输出 `C naming check: PASS`，其单元测试（含 m2006 模块）全部通过。
+- Keil 工程构建结果为 `0 Error(s), 0 Warning(s)`。
+- M2006 电机调试功能尚未进行硬件实测；上板验证时应先确认 FDCAN2 对应板卡 CAN2 接口接线与终端电阻，再按 Keil 调试流程操作。
 
 硬件复测时应确认：VOFA 串口选择 UART8 TX 对应的物理线路，波特率为 1,000,000，协议选择 JustFloat，并且串口地线与板子共地。正常情况下，一个通道的数值应持续递增，约每 100 毫秒产生一次新采样；复位后数值应重新从接近零的位置开始。
 
@@ -125,6 +160,11 @@
 - `Core\Src\vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`。
+- `Core\Src\m2006_driver.c`。
+- `Core\Inc\m2006_driver.h`。
+- `Core\Src\m2006_protocol.c`。
+- `Core\Inc\m2006_protocol.h`。
+- `tests\m2006_protocol_test.c`。
 
 ### docs\superpowers 规则
 
@@ -161,6 +201,15 @@
 10. 完成任务后更新本文件的开发进度、验证状态和已知限制；不要创建 `docs\superpowers` 文件。
 
 ## 九、持续更新记录
+
+### 2026 年 9 月 4 日
+
+- 新增 M2006 电机（配合 C610 电调，电调 ID=2）电流开环调试驱动：m2006_protocol 负责 CAN 协议编解码（控制帧 0x200、反馈帧 0x202 解析），m2006_driver 负责 FDCAN2 初始化、接收中断、电流钳位与安全门、控制帧发送。
+- 在 freertos.c 新增 1kHz 控制任务 m2006_control，调试变量集中在结构体实例 m2006_debug（Keil Watch 一键添加即可查看/修改全部成员），支持在 Keil Watch 窗口在线修改调试。
+- 安全保护：反馈超时（500ms）断输出、电流钳位（默认 ±3000=3A）、输出轴超速（默认 ±500rpm）断输出、断使能恒 0。
+- 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并把 m2006 模块与主机端测试纳入检查范围；新增 4 项命名单元测试。
+- 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过（0 Error, 0 Warning）。
+- 本项改动不涉及 UART8/VOFA 时间戳任务，原有点亮与 VOFA 功能不受影响；M2006 功能尚未硬件实测。
 
 ### 2026 年 8 月 11 日
 
