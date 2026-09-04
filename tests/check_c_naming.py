@@ -16,13 +16,17 @@ from typing import Iterable, Sequence
 
 
 TARGET_RELATIVE_PATHS = (
-    Path("Core/Inc/vofa_justfloat.h"),
-    Path("Core/Src/vofa_justfloat.c"),
+    Path("App/Inc/vofa_justfloat.h"),
+    Path("App/Src/vofa_justfloat.c"),
     Path("tests/vofa_justfloat_test.c"),
-    Path("Core/Inc/m2006_protocol.h"),
-    Path("Core/Src/m2006_protocol.c"),
-    Path("Core/Inc/m2006_driver.h"),
-    Path("Core/Src/m2006_driver.c"),
+    Path("App/Inc/m2006_protocol.h"),
+    Path("App/Src/m2006_protocol.c"),
+    Path("App/Inc/m2006_driver.h"),
+    Path("App/Src/m2006_driver.c"),
+    Path("App/Inc/m2006_control_task.h"),
+    Path("App/Src/m2006_control_task.c"),
+    Path("App/Inc/vofa_timestamp_task.h"),
+    Path("App/Src/vofa_timestamp_task.c"),
     Path("tests/m2006_protocol_test.c"),
     Path("Core/Src/freertos.c"),
 )

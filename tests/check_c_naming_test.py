@@ -156,6 +156,74 @@ int main(void)
 """
 
 
+M2006_CONTROL_TASK_HEADER_SOURCE = """\
+#ifndef M2006_CONTROL_TASK_H
+#define M2006_CONTROL_TASK_H
+
+#include "cmsis_os.h"
+
+extern osThreadId_t m2006_control_task_handle;
+extern const osThreadAttr_t m2006_control_task_attributes;
+
+void m2006_control_task_entry(void *argument);
+
+#endif /* M2006_CONTROL_TASK_H */
+"""
+
+
+M2006_CONTROL_TASK_SOURCE = """\
+#include "m2006_control_task.h"
+
+osThreadId_t m2006_control_task_handle;
+const osThreadAttr_t m2006_control_task_attributes = {
+  .name = "m2006_control",
+};
+
+void m2006_control_task_entry(void *argument)
+{
+  (void)argument;
+
+  for (;;)
+  {
+  }
+}
+"""
+
+
+VOFA_TIMESTAMP_TASK_HEADER_SOURCE = """\
+#ifndef VOFA_TIMESTAMP_TASK_H
+#define VOFA_TIMESTAMP_TASK_H
+
+#include "cmsis_os.h"
+
+extern osThreadId_t vofa_timestamp_task_handle;
+extern const osThreadAttr_t vofa_timestamp_task_attributes;
+
+void vofa_timestamp_task_entry(void *argument);
+
+#endif /* VOFA_TIMESTAMP_TASK_H */
+"""
+
+
+VOFA_TIMESTAMP_TASK_SOURCE = """\
+#include "vofa_timestamp_task.h"
+
+osThreadId_t vofa_timestamp_task_handle;
+const osThreadAttr_t vofa_timestamp_task_attributes = {
+  .name = "vofa_timestamp",
+};
+
+void vofa_timestamp_task_entry(void *argument)
+{
+  (void)argument;
+
+  for (;;)
+  {
+  }
+}
+"""
+
+
 FREERTOS_SOURCE = """\
 /* USER CODE BEGIN PD */
 #define VOFA_TIMESTAMP_PERIOD_MS (100U)
@@ -218,17 +286,25 @@ class NamingCheckerTestCase(unittest.TestCase):
       m2006_driver_header_source: str = M2006_DRIVER_HEADER_SOURCE,
       m2006_driver_source: str = M2006_DRIVER_SOURCE,
       m2006_test_source: str = M2006_TEST_SOURCE,
+      m2006_control_task_header_source: str = M2006_CONTROL_TASK_HEADER_SOURCE,
+      m2006_control_task_source: str = M2006_CONTROL_TASK_SOURCE,
+      vofa_timestamp_task_header_source: str = VOFA_TIMESTAMP_TASK_HEADER_SOURCE,
+      vofa_timestamp_task_source: str = VOFA_TIMESTAMP_TASK_SOURCE,
   ) -> None:
     files = {
-        "Core/Inc/vofa_justfloat.h": header_source,
-        "Core/Src/vofa_justfloat.c": vofa_source,
+        "App/Inc/vofa_justfloat.h": header_source,
+        "App/Src/vofa_justfloat.c": vofa_source,
         "Core/Src/freertos.c": freertos_source,
         "tests/vofa_justfloat_test.c": test_source,
-        "Core/Inc/m2006_protocol.h": m2006_protocol_header_source,
-        "Core/Src/m2006_protocol.c": m2006_protocol_source,
-        "Core/Inc/m2006_driver.h": m2006_driver_header_source,
-        "Core/Src/m2006_driver.c": m2006_driver_source,
+        "App/Inc/m2006_protocol.h": m2006_protocol_header_source,
+        "App/Src/m2006_protocol.c": m2006_protocol_source,
+        "App/Inc/m2006_driver.h": m2006_driver_header_source,
+        "App/Src/m2006_driver.c": m2006_driver_source,
         "tests/m2006_protocol_test.c": m2006_test_source,
+        "App/Inc/m2006_control_task.h": m2006_control_task_header_source,
+        "App/Src/m2006_control_task.c": m2006_control_task_source,
+        "App/Inc/vofa_timestamp_task.h": vofa_timestamp_task_header_source,
+        "App/Src/vofa_timestamp_task.c": vofa_timestamp_task_source,
     }
 
     for relative_path, source in files.items():

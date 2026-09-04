@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H723xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/ST/ARM/DSP/Inc</IncludePath>
+              <IncludePath>../App/Inc;../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/ST/ARM/DSP/Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -358,7 +358,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/ST/ARM/DSP/Inc</IncludePath>
+              <IncludePath>../App/Inc;../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../Middlewares/ST/ARM/DSP/Inc</IncludePath>
             </VariousControls>
           </Aads>
           <LDads>
@@ -412,17 +412,27 @@
             <File>
               <FileName>vofa_justfloat.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/vofa_justfloat.c</FilePath>
+              <FilePath>../App/Src/vofa_justfloat.c</FilePath>
             </File>
             <File>
               <FileName>m2006_protocol.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/m2006_protocol.c</FilePath>
+              <FilePath>../App/Src/m2006_protocol.c</FilePath>
             </File>
             <File>
               <FileName>m2006_driver.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../Core/Src/m2006_driver.c</FilePath>
+              <FilePath>../App/Src/m2006_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>m2006_control_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../App/Src/m2006_control_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>vofa_timestamp_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../App/Src/vofa_timestamp_task.c</FilePath>
             </File>
             <File>
               <FileName>dma.c</FileName>

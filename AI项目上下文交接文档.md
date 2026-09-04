@@ -42,6 +42,7 @@
 - 新增 1kHz 电流开环控制任务 m2006_control，可在 Keil Watch 窗口修改全局变量在线调试。
 - 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并新增对应单元测试。
 - 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过。
+- 目录分层：新建 App 层（App\Inc / App\Src）收纳全部自有模块与两个 RTOS 任务，Core 仅保留 CubeMX 生成文件。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -74,8 +75,8 @@
 
 编码器位于：
 
-- `Core\Inc\vofa_justfloat.h`
-- `Core\Src\vofa_justfloat.c`
+- `App\Inc\vofa_justfloat.h`
+- `App\Src\vofa_justfloat.c`
 
 当前只发送一个 `float32` 通道。每帧共 8 字节：
 
@@ -86,17 +87,19 @@
 
 ### 相关文件
 
-- `Core\Src\freertos.c`：创建任务、读取 RTOS 时间戳并调用 UART8 DMA。
-- `Core\Inc\vofa_justfloat.h`：JustFloat 帧长度常量和编码接口声明。
-- `Core\Src\vofa_justfloat.c`：单通道 JustFloat 编码实现。
+- `Core\Src\freertos.c`：CubeMX 生成文件，USER CODE 区仅保留 osThreadNew 胶水调用，defaultTask 由 CubeMX 管理。
+- `App\Inc\vofa_justfloat.h`：JustFloat 帧长度常量和编码接口声明。
+- `App\Src\vofa_justfloat.c`：单通道 JustFloat 编码实现。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`：当前 Keil 工程文件，必须包含 `vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`：主机端编码测试。
 - `docs\c_naming_convention.md`：项目自有 C 代码的强制命名规范和复查流程。
 - `tests\check_c_naming.py`：项目自有 C 代码的自动命名检查器。
 - `tests\check_c_naming_test.py`：命名检查器的主机端单元测试。
-- `Core\Src\m2006_driver.c`、`Core\Inc\m2006_driver.h`：M2006 电机电流开环调试驱动。
-- `Core\Src\m2006_protocol.c`、`Core\Inc\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
+- `App\Src\m2006_driver.c`、`App\Inc\m2006_driver.h`：M2006 电机电流开环调试驱动。
+- `App\Src\m2006_protocol.c`、`App\Inc\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
 - `tests\m2006_protocol_test.c`：主机端协议编解码测试。
+- `App\Src\m2006_control_task.c`、`App\Inc\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
+- `App\Src\vofa_timestamp_task.c`、`App\Inc\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
 
 ### M2006 电机调试功能（C610 电调，FDCAN2）
 
@@ -156,15 +159,19 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 以下固件源文件不能被忽略：
 
 - `Core\Src\freertos.c`。
-- `Core\Inc\vofa_justfloat.h`。
-- `Core\Src\vofa_justfloat.c`。
+- `App\Inc\vofa_justfloat.h`。
+- `App\Src\vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`。
-- `Core\Src\m2006_driver.c`。
-- `Core\Inc\m2006_driver.h`。
-- `Core\Src\m2006_protocol.c`。
-- `Core\Inc\m2006_protocol.h`。
+- `App\Src\m2006_driver.c`。
+- `App\Inc\m2006_driver.h`。
+- `App\Src\m2006_protocol.c`。
+- `App\Inc\m2006_protocol.h`。
 - `tests\m2006_protocol_test.c`。
+- `App\Src\m2006_control_task.c`。
+- `App\Inc\m2006_control_task.h`。
+- `App\Src\vofa_timestamp_task.c`。
+- `App\Inc\vofa_timestamp_task.h`。
 
 ### docs\superpowers 规则
 
@@ -210,6 +217,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并把 m2006 模块与主机端测试纳入检查范围；新增 4 项命名单元测试。
 - 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过（0 Error, 0 Warning）。
 - 本项改动不涉及 UART8/VOFA 时间戳任务，原有点亮与 VOFA 功能不受影响；M2006 功能尚未硬件实测。
+- 目录分层：新建 App 层（App\Inc / App\Src），将 vofa_justfloat、m2006_protocol、m2006_driver 及两个 RTOS 任务（m2006_control、vofa_timestamp）全部迁入 App；Core 目录仅保留 CubeMX 生成文件，freertos.c 的 USER CODE 区只留 osThreadNew 胶水调用，CubeMX 重新生成不受影响。
 
 ### 2026 年 8 月 11 日
 
