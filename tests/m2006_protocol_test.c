@@ -145,6 +145,31 @@ static int test_parse_feedback_rejects_null_arguments(void)
   return 1;
 }
 
+static int test_unwrap_angle_forward(void)
+{
+  return m2006_protocol_unwrap_angle(100U, 200U) == 100;
+}
+
+static int test_unwrap_angle_wrap_forward(void)
+{
+  return m2006_protocol_unwrap_angle(8000U, 100U) == 292;
+}
+
+static int test_unwrap_angle_wrap_backward(void)
+{
+  return m2006_protocol_unwrap_angle(100U, 8000U) == -292;
+}
+
+static int test_unwrap_angle_zero(void)
+{
+  return m2006_protocol_unwrap_angle(5000U, 5000U) == 0;
+}
+
+static int test_unwrap_angle_boundary(void)
+{
+  return m2006_protocol_unwrap_angle(8191U, 0U) == 1;
+}
+
 int main(void)
 {
   if (!test_encode_control_id2_positive_current())
@@ -175,6 +200,31 @@ int main(void)
   if (!test_parse_feedback_rejects_null_arguments())
   {
     return 6;
+  }
+
+  if (!test_unwrap_angle_forward())
+  {
+    return 7;
+  }
+
+  if (!test_unwrap_angle_wrap_forward())
+  {
+    return 8;
+  }
+
+  if (!test_unwrap_angle_wrap_backward())
+  {
+    return 9;
+  }
+
+  if (!test_unwrap_angle_zero())
+  {
+    return 10;
+  }
+
+  if (!test_unwrap_angle_boundary())
+  {
+    return 11;
   }
 
   (void)printf("m2006_protocol_test: PASS\n");

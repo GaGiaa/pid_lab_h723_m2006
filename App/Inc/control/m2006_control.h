@@ -60,7 +60,7 @@ typedef struct m2006_control_debug
 
   /* ---- 只读成员 ---- */
 
-  /* 实际位置：输出轴累计角度（度），由 angle_raw 回绕累计换算 */
+  /* 实际位置：输出轴累计角度（度），取 m2006_debug.angle_total_deg（driver 维护多圈累计） */
   float pos_feedback_deg;
 
   /* 实际速度：输出轴转速（rpm）= 转子 rpm / 36 */
@@ -78,15 +78,6 @@ typedef struct m2006_control_debug
 
 /* 调试变量面板全局实例：Keil Watch 添加 m2006_control_debug 即可查看/修改全部 */
 extern volatile m2006_control_debug_t m2006_control_debug;
-
-/**
-  * @brief  电机角度回绕累计（纯函数，主机端可测）
-  * @param  prev_raw 上一周期转子机械角度编码 [0, 8191]
-  * @param  raw      本周期转子机械角度编码 [0, 8191]
-  * @retval 本周期角度增量（有符号 LSB）：正常差值；跨越 8191↔0 时按半圈阈值 4096
-  *         判别方向并折算，使累计角度连续不回绕
-  */
-int32_t m2006_control_accumulate_angle(uint16_t prev_raw, uint16_t raw);
 
 /**
   * @brief  闭环控制计算（纯函数，主机端可测）：模式分支 + 级联 PID
@@ -117,7 +108,7 @@ int16_t m2006_control_compute_current(
 void m2006_control_init(void);
 
 /**
-  * @brief  周期更新闭环控制：累计角度 → 模式分支 → 级联 PID → 写目标电流
+  * @brief  周期更新闭环控制：读反馈（driver 面板）→ 模式分支 → 级联 PID → 写目标电流
   * @note   建议 1kHz 周期调用，与 m2006_driver_update() 同任务顺序执行
   */
 void m2006_control_update(void);

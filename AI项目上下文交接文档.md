@@ -131,7 +131,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 10000 = 10A，调试放开，带负载/上线前应收回 3A）、`m2006_debug.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭保护，>0 时生效）。
 - 只读成员：
   - 电调回传原始值（未解析换算）：`m2006_debug.angle_raw`（转子机械角度编码 0~8191）、`m2006_debug.speed_rpm`（转子转速 rpm，÷36 为输出轴）、`m2006_debug.torque_raw`（“实际输出转矩”编码，实为电流环反馈电流，1000 LSB = 1A）；
-  - 输出轴换算值（驱动 1kHz 内换算）：`m2006_debug.angle_out_deg`（输出轴角度°）、`m2006_debug.speed_out_rpm`（输出轴转速 rpm）、`m2006_debug.torque_out_nm`（输出轴力矩 N·m，= 电流 A × 0.18，M2006 官方转矩常数）；
+  - 换算值（驱动 1kHz 内换算）：`m2006_debug.angle_raw_deg`（转子单圈相位角°，0~360° 随编码器回绕）、`m2006_debug.angle_total_deg`（输出轴累计角度°，多圈连续不回绕）、`m2006_debug.speed_out_rpm`（输出轴转速 rpm）、`m2006_debug.torque_out_nm`（输出轴力矩 N·m，= 电流 A × 0.18，M2006 官方转矩常数）；
   - 其他：`m2006_debug.output_current`、`m2006_debug.rx_msg_count`、`m2006_debug.is_rx_timeout`、`m2006_debug.tx_fail_count`。
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_debug.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_debug.is_enabled` 置 1，从较小的 `m2006_debug.current_setpoint`（如 500）开始缓慢增大。
 
@@ -152,11 +152,11 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - `M2006_CTRL_MODE_SPEED`：速度闭环，目标 `m2006_control_debug.speed_setpoint_rpm`（输出轴 rpm）。
 - `M2006_CTRL_MODE_POSITION`：位置闭环，目标 `m2006_control_debug.pos_setpoint_deg`（输出轴度），位置环输出限速 `pos_max_speed_rpm`。
 
-位置反馈：多圈累计角度，跨越 8191↔0 回绕连续；输出轴角度 = 累计 LSB × 360/(36×8191)°。
+位置反馈：多圈累计角度由 driver 层维护（`m2006_debug.angle_total_deg`，跨越 8191↔0 回绕连续），control 层直接复用、不再自行累计；输出轴角度 = 累计 LSB × 360/(36×8191)°。
 
 调试面板 `m2006_control_debug`（Keil Watch 一键添加）与通信面板 `m2006_debug` 分离：
 - 可写：mode / pos_setpoint_deg / speed_setpoint_rpm / pos_pid_kp / pos_deadband_deg / pos_max_speed_rpm / spd_pid_kp / spd_pid_ki / spd_setpoint_rate。
-- 只读：pos_feedback_deg / speed_feedback_rpm / speed_cmd_rpm / current_cmd_raw / pos_in_deadband。
+- 只读：pos_feedback_deg（= driver 的 angle_total_deg）/ speed_feedback_rpm（= driver 的 speed_out_rpm）/ speed_cmd_rpm / current_cmd_raw / pos_in_deadband。
 - 电流限幅单一来源：`m2006_debug.current_limit`（control 层不复制，速度环输出限幅直接读它）。
 - 使能与转速限幅仍在 driver（安全门属驱动层）。
 
@@ -299,6 +299,7 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 - 将 submodule URL 切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（H723 commit `9ebdf96` 已推送）；临时目录 `git clone --recursive` 验证通过，子模块从远程 checkout `0964fc2`。
 - App 内部分层（本次）：m2006_control_task、vofa_timestamp_task 迁入 `App\Inc\task` / `App\Src\task`；m2006_driver、m2006_protocol、vofa_justfloat 迁入 `App\Inc\driver` / `App\Src\driver`；新建 `App\Inc\control` / `App\Src\control` 骨架（.gitkeep）预留速度/位置闭环。include 采用扁平策略（Keil include path 加三个子目录，源文件内 include 名不变）；uvprojx、命名检查器与测试同步更新；命名检查 PASS、单测 19/19、Keil 构建 0 Error 0 Warning。
 - M2006 闭环控制（本次）：新增 `App\Inc\control\m2006_control.h` / `App\Src\control\m2006_control.c`（累计角度纯函数、compute 纯函数、update 胶水、PID 实例、独立调试面板）与 `tests\m2006_control_test.c`（18 项断言）；`m2006_driver` 新增 `m2006_driver_set_current_setpoint()` 接口、`current_setpoint` 语义升级为驱动输入；`m2006_control_task` 编排改为闭环先于发送；uvprojx 源文件列表、命名检查器（含新单测 files dict）同步更新；验证：命名检查 PASS、单测 19/19、control 测试 18 asserts PASS、Keil 构建 0 Error 0 Warning。
+- 反馈换算收敛与角度下放（本次）：①control 层删除自有的角度回绕累计（`m2006_control_accumulate_angle` 与累计状态机），多圈连续角下放 driver 维护（新增 `m2006_debug.angle_total_deg`），回绕展开纯函数迁至 `m2006_protocol_unwrap_angle()`（protocol 层，主机端可测），对应 5 个用例迁至 m2006_protocol_test；②`angle_out_deg` 更名为 `angle_raw_deg` 并改为转子单圈相位角（0~360° 随编码器回绕），消除"输出轴一圈回绕"命名歧义；③control 位置/速度反馈直接映射 driver 换算值（pos_feedback_deg = angle_total_deg、speed_feedback_rpm = speed_out_rpm）；④protocol.h 新增共享常量 `M2006_PROTOCOL_ANGLE_RAW_SCALE_DEG` / `M2006_PROTOCOL_ANGLE_SCALE_DEG` / `M2006_PROTOCOL_TORQUE_CONSTANT_NM_PER_A`，driver/control 本地换算宏删除、统一引用；验证：命名检查 PASS、单测 19/19、control 测试 16 asserts PASS、protocol 测试 11 用例 PASS、Keil 构建 0 Error 0 Warning。
 
 ### 2026 年 9 月 4 日
 

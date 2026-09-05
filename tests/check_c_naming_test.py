@@ -120,7 +120,8 @@ typedef struct m2006_debug
   uint16_t angle_raw;
   int16_t speed_rpm;
   int16_t torque_raw;
-  float angle_out_deg;
+  float angle_raw_deg;
+  float angle_total_deg;
   float speed_out_rpm;
   float torque_out_nm;
   int16_t output_current;
@@ -149,7 +150,8 @@ volatile m2006_debug_t m2006_debug = {
   .angle_raw = 0U,
   .speed_rpm = 0,
   .torque_raw = 0,
-  .angle_out_deg = 0.0f,
+  .angle_raw_deg = 0.0f,
+  .angle_total_deg = 0.0f,
   .speed_out_rpm = 0.0f,
   .torque_out_nm = 0.0f,
   .output_current = 0,
@@ -207,8 +209,6 @@ typedef struct m2006_control_debug
 
 extern volatile m2006_control_debug_t m2006_control_debug;
 
-int32_t m2006_control_accumulate_angle(uint16_t prev_raw, uint16_t raw);
-
 void m2006_control_init(void);
 void m2006_control_update(void);
 
@@ -221,11 +221,6 @@ M2006_CONTROL_SOURCE = """\
 volatile m2006_control_debug_t m2006_control_debug = {
   .mode = M2006_CTRL_MODE_OPEN_LOOP,
 };
-
-int32_t m2006_control_accumulate_angle(uint16_t prev_raw, uint16_t raw)
-{
-  return (int32_t)raw - (int32_t)prev_raw;
-}
 
 void m2006_control_init(void)
 {
@@ -243,7 +238,6 @@ M2006_CONTROL_TEST_SOURCE = """\
 
 int main(void)
 {
-  (void)m2006_control_accumulate_angle(0U, 1U);
   return 0;
 }
 """

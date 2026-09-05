@@ -29,9 +29,8 @@
 #define M2006_DRIVER_CURRENT_LIMIT_DEFAULT (10000)   /* 默认电流钳位 10A（电调满量程；调试放开，带负载/上线前应收回到 3A 额定） */
 #define M2006_DRIVER_SPEED_LIMIT_DEFAULT_RPM (0)  /* 默认超速保护阈值：0 = 关闭保护（调试期默认），>0 时生效 */
 
-/* 输出轴角度换算：转子一圈 360° 经 36:1 减速 = 输出轴 10°/圈，再按 8191 归一 */
-#define M2006_DRIVER_ANGLE_SCALE_DEG \
-    (360.0f / (float)M2006_PROTOCOL_GEAR_RATIO / 8191.0f)
+/* 输出轴角度换算系数取共享电机参数（m2006_protocol.h）：
+   转子一圈 360° 经 36:1 减速 = 输出轴 10°/圈，再按 8191 归一 */
 /* 输出轴力矩换算（基于 M2006 官方转矩常数）：
  * 1) C610 手册口径：实际电流 A = torque_raw / 1000（10000 LSB = 10A）；
  * 2) M2006 官方手册转矩常数 = 0.18 N·m/A（输出轴等效值，已含 36:1 减速比与传动效率）；
@@ -39,7 +38,8 @@
  * 4) 综合：torque_out_nm = torque_raw * 0.18 / 1000。
  * 说明：0.18 N·m/A 为输出轴等效转矩常数；若为电机本体值则经减速后会远超额定，
  *       故判定为输出轴等效值，与额定点（3A -> 约 0.54 N·m）自洽。 */
-#define M2006_DRIVER_TORQUE_SCALE_NM (0.18f / 1000.0f)
+#define M2006_DRIVER_TORQUE_SCALE_NM \
+    (M2006_PROTOCOL_TORQUE_CONSTANT_NM_PER_A / 1000.0f)
 
 /* ---- 调试变量面板定义（Keil Watch 添加 m2006_debug 即可查看/修改） ---- */
 volatile m2006_debug_t m2006_debug = {
@@ -50,7 +50,8 @@ volatile m2006_debug_t m2006_debug = {
   .angle_raw = 0U,
   .speed_rpm = 0,
   .torque_raw = 0,
-  .angle_out_deg = 0.0f,
+  .angle_raw_deg = 0.0f,
+  .angle_total_deg = 0.0f,
   .speed_out_rpm = 0.0f,
   .torque_out_nm = 0.0f,
   .output_current = 0,
@@ -61,6 +62,11 @@ volatile m2006_debug_t m2006_debug = {
 
 /* 最近一次收到反馈的时刻，由接收中断更新 */
 static uint32_t m2006_last_rx_tick = 0U;
+
+/* 多圈累计角度状态（跨周期）：上一周期转子编码、累计 LSB、是否已首帧 */
+static uint16_t m2006_driver_prev_angle_raw = 0U;
+static int32_t m2006_driver_accumulated_lsb = 0;
+static uint8_t m2006_driver_angle_valid = 0U;
 
 void m2006_driver_init(void)
 {
@@ -100,9 +106,25 @@ void m2006_driver_update(void)
     m2006_debug.is_rx_timeout = 0U;
   }
 
-  /* 换算输出轴物理量（角度/转速/力矩） */
-  m2006_debug.angle_out_deg = (float)m2006_debug.angle_raw
-                              * M2006_DRIVER_ANGLE_SCALE_DEG;
+  /* 换算物理量（单圈相位角 / 多圈累计角 / 输出轴转速 / 力矩） */
+  m2006_debug.angle_raw_deg = (float)m2006_debug.angle_raw
+                              * M2006_PROTOCOL_ANGLE_RAW_SCALE_DEG;
+
+  /* 多圈累计角度：仅在收到反馈后开始（rx_msg_count > 0），避免首帧前误累计 */
+  if (m2006_debug.rx_msg_count > 0U)
+  {
+    if (!m2006_driver_angle_valid)
+    {
+      m2006_driver_prev_angle_raw = m2006_debug.angle_raw;
+      m2006_driver_angle_valid = 1U;
+    }
+    m2006_driver_accumulated_lsb += m2006_protocol_unwrap_angle(
+        m2006_driver_prev_angle_raw, m2006_debug.angle_raw);
+    m2006_driver_prev_angle_raw = m2006_debug.angle_raw;
+  }
+  m2006_debug.angle_total_deg = (float)m2006_driver_accumulated_lsb
+                                * M2006_PROTOCOL_ANGLE_SCALE_DEG;
+
   m2006_debug.speed_out_rpm = (float)m2006_debug.speed_rpm
                               / (float)M2006_PROTOCOL_GEAR_RATIO;
   m2006_debug.torque_out_nm = (float)m2006_debug.torque_raw

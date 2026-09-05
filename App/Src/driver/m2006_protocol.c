@@ -52,3 +52,23 @@ uint32_t m2006_protocol_encode_control(
 
   return M2006_PROTOCOL_FRAME_BYTES;
 }
+
+int32_t m2006_protocol_unwrap_angle(uint16_t prev_raw, uint16_t raw)
+{
+  int32_t delta = (int32_t)raw - (int32_t)prev_raw;
+  int32_t full_turn = (int32_t)(M2006_PROTOCOL_ANGLE_MAX + 1U);
+  int32_t half_turn = full_turn / 2;
+
+  if (delta > half_turn)
+  {
+    /* 正方向跨过 0 点（如 8000 → 100，实际前进 292 LSB） */
+    delta -= full_turn;
+  }
+  else if (delta < -half_turn)
+  {
+    /* 负方向跨过 0 点（如 100 → 8000，实际后退 292 LSB） */
+    delta += full_turn;
+  }
+
+  return delta;
+}

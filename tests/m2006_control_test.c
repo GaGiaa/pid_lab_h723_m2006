@@ -9,7 +9,8 @@
   *       Lib/pid_lib/src/pid.c
   * 运行：./tests/m2006_control_test.exe
   *
-  * 覆盖：角度回绕累计、开环直通/钳位/断使能、速度环输出方向与限幅、
+  * 覆盖：开环直通/钳位/断使能、速度环输出方向与限幅、（角度回绕用例已迁至
+  *       m2006_protocol_test.c）
   *       位置环死区、位置环输出限幅、级联电流限幅、非法模式。
   ******************************************************************************
   */
@@ -102,33 +103,6 @@ static void cfg_reset(volatile m2006_control_debug_t *cfg)
   cfg->speed_cmd_rpm = 0.0f;
   cfg->current_cmd_raw = 0;
   cfg->pos_in_deadband = 0U;
-}
-
-/* ---- 角度回绕累计 ---- */
-
-static int test_accumulate_angle_forward(void)
-{
-  return m2006_control_accumulate_angle(100U, 200U) == 100;
-}
-
-static int test_accumulate_angle_wrap_forward(void)
-{
-  return m2006_control_accumulate_angle(8000U, 100U) == 292;
-}
-
-static int test_accumulate_angle_wrap_backward(void)
-{
-  return m2006_control_accumulate_angle(100U, 8000U) == -292;
-}
-
-static int test_accumulate_angle_zero(void)
-{
-  return m2006_control_accumulate_angle(5000U, 5000U) == 0;
-}
-
-static int test_accumulate_angle_wrap_boundary(void)
-{
-  return m2006_control_accumulate_angle(8191U, 0U) == 1;
 }
 
 /* ---- 开环模式 ---- */
@@ -360,12 +334,6 @@ static int test_unknown_mode_outputs_zero(void)
 
 int main(void)
 {
-  M2006_CONTROL_TEST_ASSERT(test_accumulate_angle_forward(), "angle forward");
-  M2006_CONTROL_TEST_ASSERT(test_accumulate_angle_wrap_forward(), "angle wrap fwd");
-  M2006_CONTROL_TEST_ASSERT(test_accumulate_angle_wrap_backward(), "angle wrap back");
-  M2006_CONTROL_TEST_ASSERT(test_accumulate_angle_zero(), "angle zero");
-  M2006_CONTROL_TEST_ASSERT(test_accumulate_angle_wrap_boundary(), "angle boundary");
-
   M2006_CONTROL_TEST_ASSERT(test_open_loop_direct(), "open loop direct");
   M2006_CONTROL_TEST_ASSERT(test_open_loop_clamped(), "open loop clamped");
   M2006_CONTROL_TEST_ASSERT(test_open_loop_disabled(), "open loop disabled");

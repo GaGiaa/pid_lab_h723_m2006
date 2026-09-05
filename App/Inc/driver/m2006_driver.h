@@ -56,10 +56,13 @@ typedef struct m2006_debug
      -10000~+10000 对应 -10A~+10A（1000 LSB = 1A） */
   int16_t torque_raw;
 
-  /* ---- 换算后的输出轴物理量（驱动 1kHz 任务内换算） ---- */
+  /* ---- 换算后的物理量（驱动 1kHz 任务内换算） ---- */
 
-  /* 输出轴角度（单圈内），单位度，= angle_raw/8191 × 10° */
-  float angle_out_deg;
+  /* 转子单圈相位角（度，0~360° 随编码器回绕），= angle_raw/8191 × 360° */
+  float angle_raw_deg;
+
+  /* 输出轴累计角度（度，多圈连续不回绕），= 回绕展开后累计 LSB × 360/36/8191 */
+  float angle_total_deg;
 
   /* 输出轴转速，单位 rpm，= speed_rpm / 36 */
   float speed_out_rpm;

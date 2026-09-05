@@ -25,6 +25,17 @@
 #define M2006_PROTOCOL_ANGLE_MAX (8191U)         /* 转子机械角度满量程 */
 #define M2006_PROTOCOL_CURRENT_FULL_SCALE (10000) /* 电流满量程，对应 10A */
 
+/* 输出轴角度换算系数：转子一圈 360° 经 36:1 减速 = 输出轴 10°/圈，再按 8191 归一 */
+#define M2006_PROTOCOL_ANGLE_SCALE_DEG \
+    (360.0f / (float)M2006_PROTOCOL_GEAR_RATIO / (float)M2006_PROTOCOL_ANGLE_MAX)
+
+/* M2006 转矩常数（输出轴等效值，已含 36:1 减速比与传动效率）：0.18 N·m/A */
+#define M2006_PROTOCOL_TORQUE_CONSTANT_NM_PER_A (0.18f)
+
+/* 转子单圈相位角换算系数：编码器一圈 8191 LSB = 转子 360° */
+#define M2006_PROTOCOL_ANGLE_RAW_SCALE_DEG \
+    (360.0f / (float)M2006_PROTOCOL_ANGLE_MAX)
+
 /* 电调反馈测量值 */
 typedef struct m2006_measure
 {
@@ -54,5 +65,14 @@ uint32_t m2006_protocol_encode_control(
     uint8_t motor_id,
     int16_t current_raw,
     uint8_t control_data[M2006_PROTOCOL_FRAME_BYTES]);
+
+/**
+  * @brief  角度回绕展开（纯函数）：把单圈编码差值折算为连续角度增量
+  * @param  prev_raw 上一周期转子机械角度编码 [0, 8191]
+  * @param  raw      本周期转子机械角度编码 [0, 8191]
+  * @retval 有符号增量 LSB：正常差值；跨越 8191↔0 时按半圈阈值判别方向并折算，
+  *         使多圈累计角度连续不回绕
+  */
+int32_t m2006_protocol_unwrap_angle(uint16_t prev_raw, uint16_t raw);
 
 #endif /* M2006_PROTOCOL_H */
