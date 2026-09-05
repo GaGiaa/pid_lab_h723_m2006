@@ -471,8 +471,8 @@ class NamingCheckerTestCase(unittest.TestCase):
         "App/Src/m2006_control_task.c": m2006_control_task_source,
         "App/Inc/vofa_timestamp_task.h": vofa_timestamp_task_header_source,
         "App/Src/vofa_timestamp_task.c": vofa_timestamp_task_source,
-        "Lib/pid_lib/pid.h": pid_header_source,
-        "Lib/pid_lib/pid.c": pid_source,
+        "Lib/pid_lib/include/pid.h": pid_header_source,
+        "Lib/pid_lib/src/pid.c": pid_source,
         "tests/pid_test.c": pid_test_source,
     }
 

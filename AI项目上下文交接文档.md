@@ -2,11 +2,11 @@
 
 > 本文件是本项目的唯一 AI 交接入口。后续接手本项目的 AI，在处理任何开发任务前，必须先阅读本文件和 `docs\c_naming_convention.md`，再检查实际代码和 Git 工作区状态。
 
-最后更新日期：2026 年 9 月 4 日
+最后更新日期：2026 年 9 月 5 日
 
 ## 一、项目概况
 
-项目路径：`D:\desktop\pid_lib_workplace_v2\pid_lab_h723_m2006`
+项目路径：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lab_h723_m2006`
 
 这是一个基于 STM32H723ZGTx 的嵌入式固件工程，使用 Keil MDK 进行构建，使用 CubeMX 生成基础外设代码，使用 CMSIS-RTOS2 接口和 FreeRTOS 内核实现实时任务调度。
 
@@ -100,7 +100,7 @@
 - `tests\m2006_protocol_test.c`：主机端协议编解码测试。
 - `App\Src\m2006_control_task.c`、`App\Inc\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
 - `App\Src\vofa_timestamp_task.c`、`App\Inc\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
-- `Lib\pid_lib\pid.h`、`Lib\pid_lib\pid.c`：通用 PID 算法库（位置式 + 增量式），纯 C 实现，零平台依赖，可独立复用。
+- `Lib\pid_lib`：git submodule，引用独立 PID 库仓库（路径与版本见"通用 PID 算法库"小节）。
 - `tests\pid_test.c`：PID 库主机端单元测试（58 项断言，覆盖 P/PI/PD/限幅/斜坡/死区/滞回/滤波/条件积分/增量式等）。
 
 ### M2006 电机调试功能（C610 电调，FDCAN2）
@@ -137,6 +137,8 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 
 
 ### 通用 PID 算法库（Lib/pid_lib）
+
+> 2026 年 9 月 5 日起，PID 库已独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（分支 main，root commit `0bbbfc9`，CMake 构建 + ctest）。本工程的 `Lib\pid_lib` 以 git submodule 方式引用该仓库，不再直接维护库文件；改库需在独立仓库提交并推送，再回到本工程升级子模块指针（进入 `Lib/pid_lib` 执行 `git fetch` + `git checkout <版本>`，然后在本工程提交更新后的 gitlink）。子模块 URL 当前为本地绝对路径，待独立仓库推送远程后执行 `git submodule set-url Lib/pid_lib <远程URL>` 并提交。
 
 通用 PID 算法库，纯 C 实现，零平台依赖（不依赖 HAL/RTOS），可独立复用于任意 C 项目。
 
@@ -216,6 +218,12 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - `Lib\pid_lib\pid.c`。
 - `tests\pid_test.c`。
 
+### submodule 规则
+
+- `Lib\pid_lib` 是 git submodule，引用独立 PID 库仓库；子模块内容由独立仓库管理，不在本工程内直接修改。
+- 本工程已设置 `protocol.file.allow=always`（仅本仓库 local config），支持从本地路径 clone 子模块；换机后如需重新初始化子模块，需先确认该配置。
+- 独立 pid_lib 仓库推送远程后，必须执行 `git submodule set-url Lib/pid_lib <远程URL>` 更新 `.gitmodules`，并提交。
+
 ### docs\superpowers 规则
 
 不得在 `docs\superpowers` 目录生成新的计划、设计或其他文件。需要记录的方案、风险、待确认事项和设计内容，直接在当前会话中说明，并要求用户确认。
@@ -251,6 +259,13 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 10. 完成任务后更新本文件的开发进度、验证状态和已知限制；不要创建 `docs\superpowers` 文件。
 
 ## 九、持续更新记录
+
+### 2026 年 9 月 5 日
+
+- 将通用 PID 算法库独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（main 分支，root commit `0bbbfc9`），目录结构 include/src/tests，CMake 构建（静态库 + ctest），58 项主机端单元测试全部通过。
+- 本工程 `Lib\pid_lib` 改为 git submodule 引用该独立仓库（commit `65e6466`），Keil include 路径与源文件引用不变，编译行为不受影响。
+- 同步机制决策：方案 B（git submodule）。因 PID 库定位为多项目复用，方案 A（复制同步）无法建立"库↔项目"双向版本链条，故弃用。
+- 注意事项：子模块 URL 当前为本地绝对路径（`D:/.../pid_lib`），独立仓库推送远程后需 `git submodule set-url` 更新；本地路径 clone 依赖 `protocol.file.allow=always`（已写入本仓库 config）。
 
 ### 2026 年 9 月 4 日
 

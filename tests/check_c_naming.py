@@ -28,8 +28,8 @@ TARGET_RELATIVE_PATHS = (
     Path("App/Inc/vofa_timestamp_task.h"),
     Path("App/Src/vofa_timestamp_task.c"),
     Path("tests/m2006_protocol_test.c"),
-    Path("Lib/pid_lib/pid.h"),
-    Path("Lib/pid_lib/pid.c"),
+    Path("Lib/pid_lib/include/pid.h"),
+    Path("Lib/pid_lib/src/pid.c"),
     Path("tests/pid_test.c"),
     Path("Core/Src/freertos.c"),
 )
