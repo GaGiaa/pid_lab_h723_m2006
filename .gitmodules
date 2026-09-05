@@ -1,0 +1,3 @@
+[submodule "Lib/pid_lib"]
+	path = Lib/pid_lib
+	url = D:/desktop/junior_project/2_pid_lib_workplace_v2_260804/pid_lib_workplace_v2/pid_lib
