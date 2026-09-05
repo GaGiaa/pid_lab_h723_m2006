@@ -138,7 +138,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 
 ### 通用 PID 算法库（Lib/pid_lib）
 
-> 2026 年 9 月 5 日起，PID 库已独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（分支 main，root commit `0bbbfc9`，CMake 构建 + ctest）。本工程的 `Lib\pid_lib` 以 git submodule 方式引用该仓库，不再直接维护库文件；改库需在独立仓库提交并推送，再回到本工程升级子模块指针（进入 `Lib/pid_lib` 执行 `git fetch` + `git checkout <版本>`，然后在本工程提交更新后的 gitlink）。子模块 URL 当前为本地绝对路径，待独立仓库推送远程后执行 `git submodule set-url Lib/pid_lib <远程URL>` 并提交。
+> 2026 年 9 月 5 日起，PID 库已独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（分支 main，root commit `0bbbfc9`，CMake 构建 + ctest）。本工程的 `Lib\pid_lib` 以 git submodule 方式引用该仓库，不再直接维护库文件；改库需在独立仓库提交并推送，再回到本工程升级子模块指针（进入 `Lib/pid_lib` 执行 `git fetch` + `git checkout <版本>`，然后在本工程提交更新后的 gitlink）。子模块 URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（commit `9ebdf96` 已推送），临时目录 `git clone --recursive` 验证通过。
 
 通用 PID 算法库，纯 C 实现，零平台依赖（不依赖 HAL/RTOS），可独立复用于任意 C 项目。
 
@@ -221,8 +221,8 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 ### submodule 规则
 
 - `Lib\pid_lib` 是 git submodule，引用独立 PID 库仓库；子模块内容由独立仓库管理，不在本工程内直接修改。
-- 本工程已设置 `protocol.file.allow=always`（仅本仓库 local config），支持从本地路径 clone 子模块；换机后如需重新初始化子模块，需先确认该配置。
-- 独立 pid_lib 仓库推送远程后，必须执行 `git submodule set-url Lib/pid_lib <远程URL>` 更新 `.gitmodules`，并提交。
+- 本仓库 config 保留 `protocol.file.allow=always`（早期本地路径 clone 的遗留配置，远程拉取不受影响，可保留）。
+- submodule URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（commit `9ebdf96` 已推送）；克隆本工程需使用 `git clone --recursive` 以带出子模块。
 
 ### docs\superpowers 规则
 
@@ -266,7 +266,8 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 将通用 PID 算法库独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（main 分支，root commit `0bbbfc9`），目录结构 include/src/tests，CMake 构建（静态库 + ctest），58 项主机端单元测试全部通过。
 - 本工程 `Lib\pid_lib` 改为 git submodule 引用该独立仓库（commit `65e6466`）；submodule 后库文件位于 include/ 与 src/，Keil include 路径相应改为 `../Lib/pid_lib/include`、源文件改为 `../Lib/pid_lib/src/pid.c`（commit `25af4c5`），构建验证 0 Error(s), 0 Warning(s)。
 - 同步机制决策：方案 B（git submodule）。因 PID 库定位为多项目复用，方案 A（复制同步）无法建立"库↔项目"双向版本链条，故弃用。
-- 注意事项：子模块 URL 当前为本地绝对路径（`D:/.../pid_lib`），独立仓库推送远程后需 `git submodule set-url` 更新；本地路径 clone 依赖 `protocol.file.allow=always`（已写入本仓库 config）。
+- 注意事项：子模块 URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`；`protocol.file.allow=always` 为本地路径 clone 遗留配置，已写入本仓库 config，不影响远程拉取。
+- 将 submodule URL 切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（H723 commit `9ebdf96` 已推送）；临时目录 `git clone --recursive` 验证通过，子模块从远程 checkout `0964fc2`。
 
 ### 2026 年 9 月 4 日
 
