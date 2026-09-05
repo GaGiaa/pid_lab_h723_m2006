@@ -242,6 +242,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 必要的专业英语名词、协议名称、代码、文件路径和命令可以保留原文。
 - STM32、CMSIS、FreeRTOS、HAL、Keil 等第三方组件的许可证和法律原文不得擅自翻译或修改。
 - 新增项目说明、交接记录、进度记录和变更说明时，默认使用中文。
+- 文档职责边界：库文档（独立 pid_lib 仓库 README）只描述库本身与通用接入方式，不写任何调用方工程的特定配置（如具体挂载路径、Keil 工程设置）；本交接文档只记录本工程（pid_lab_h723_m2006）的配置与状态。写文档前先判断内容归属：换一个工程是否仍成立——成立属库文档，依赖本工程路径或配置的属本交接文档。
 
 ## 八、后续 AI 工作顺序
 
@@ -263,7 +264,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 ### 2026 年 9 月 5 日
 
 - 将通用 PID 算法库独立为单独 git 仓库：`D:\desktop\junior_project\2_pid_lib_workplace_v2_260804\pid_lib_workplace_v2\pid_lib`（main 分支，root commit `0bbbfc9`），目录结构 include/src/tests，CMake 构建（静态库 + ctest），58 项主机端单元测试全部通过。
-- 本工程 `Lib\pid_lib` 改为 git submodule 引用该独立仓库（commit `65e6466`），Keil include 路径与源文件引用不变，编译行为不受影响。
+- 本工程 `Lib\pid_lib` 改为 git submodule 引用该独立仓库（commit `65e6466`）；submodule 后库文件位于 include/ 与 src/，Keil include 路径相应改为 `../Lib/pid_lib/include`、源文件改为 `../Lib/pid_lib/src/pid.c`（commit `25af4c5`），构建验证 0 Error(s), 0 Warning(s)。
 - 同步机制决策：方案 B（git submodule）。因 PID 库定位为多项目复用，方案 A（复制同步）无法建立"库↔项目"双向版本链条，故弃用。
 - 注意事项：子模块 URL 当前为本地绝对路径（`D:/.../pid_lib`），独立仓库推送远程后需 `git submodule set-url` 更新；本地路径 clone 依赖 `protocol.file.allow=always`（已写入本仓库 config）。
 
