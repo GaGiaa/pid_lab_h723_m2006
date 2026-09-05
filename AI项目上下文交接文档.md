@@ -19,6 +19,9 @@
 - `Drivers`：STM32H7 HAL 驱动、CMSIS 内核头文件和芯片支持文件。
 - `Middlewares`：FreeRTOS、CMSIS-RTOS2 和 ARM DSP 相关中间件。
 - `MDK-ARM`：Keil 工程文件、启动文件以及本机生成的构建和调试文件。
+- `App\Inc\task`、`App\Src\task`：RTOS 任务层（m2006_control_task、vofa_timestamp_task）。
+- `App\Inc\driver`、`App\Src\driver`：通信层（m2006_protocol 纯协议编解码、m2006_driver FDCAN 驱动、vofa_justfloat 纯协议编码）。
+- `App\Inc\control`、`App\Src\control`：控制算法层（预留，速度/位置闭环将放入此处，依赖 Lib\pid_lib）。
 - `tests`：可在主机端运行的协议编码验证程序。
 - `pid_lab_h723_m2006.ioc`：CubeMX 工程配置文件。
 
@@ -43,6 +46,7 @@
 - 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并新增对应单元测试。
 - 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过。
 - 目录分层：新建 App 层（App\Inc / App\Src）收纳全部自有模块与两个 RTOS 任务，Core 仅保留 CubeMX 生成文件。
+- App 内部分层：task（RTOS 任务）/ driver（通信：协议+驱动）/ control（控制算法，预留）三个子目录，依赖单向 Task → Control → Driver → HAL；Keil include path、源文件路径、命名检查器同步更新，命名检查、单测与 Keil 构建均通过。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -75,8 +79,8 @@
 
 编码器位于：
 
-- `App\Inc\vofa_justfloat.h`
-- `App\Src\vofa_justfloat.c`
+- `App\Inc\driver\vofa_justfloat.h`
+- `App\Src\driver\vofa_justfloat.c`
 
 当前只发送一个 `float32` 通道。每帧共 8 字节：
 
@@ -88,18 +92,18 @@
 ### 相关文件
 
 - `Core\Src\freertos.c`：CubeMX 生成文件，USER CODE 区仅保留 osThreadNew 胶水调用，defaultTask 由 CubeMX 管理。
-- `App\Inc\vofa_justfloat.h`：JustFloat 帧长度常量和编码接口声明。
-- `App\Src\vofa_justfloat.c`：单通道 JustFloat 编码实现。
+- `App\Inc\driver\vofa_justfloat.h`：JustFloat 帧长度常量和编码接口声明。
+- `App\Src\driver\vofa_justfloat.c`：单通道 JustFloat 编码实现。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`：当前 Keil 工程文件，必须包含 `vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`：主机端编码测试。
 - `docs\c_naming_convention.md`：项目自有 C 代码的强制命名规范和复查流程。
 - `tests\check_c_naming.py`：项目自有 C 代码的自动命名检查器。
 - `tests\check_c_naming_test.py`：命名检查器的主机端单元测试。
-- `App\Src\m2006_driver.c`、`App\Inc\m2006_driver.h`：M2006 电机电流开环调试驱动。
-- `App\Src\m2006_protocol.c`、`App\Inc\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
+- `App\Src\driver\m2006_driver.c`、`App\Inc\driver\m2006_driver.h`：M2006 电机电流开环调试驱动。
+- `App\Src\driver\m2006_protocol.c`、`App\Inc\driver\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
 - `tests\m2006_protocol_test.c`：主机端协议编解码测试。
-- `App\Src\m2006_control_task.c`、`App\Inc\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
-- `App\Src\vofa_timestamp_task.c`、`App\Inc\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
+- `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
+- `App\Src\task\vofa_timestamp_task.c`、`App\Inc\task\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
 - `Lib\pid_lib`：git submodule，引用独立 PID 库仓库（路径与版本见"通用 PID 算法库"小节）。
 - `tests\pid_test.c`：PID 库主机端单元测试（58 项断言，覆盖 P/PI/PD/限幅/斜坡/死区/滞回/滤波/条件积分/增量式等）。
 
@@ -201,19 +205,19 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 以下固件源文件不能被忽略：
 
 - `Core\Src\freertos.c`。
-- `App\Inc\vofa_justfloat.h`。
-- `App\Src\vofa_justfloat.c`。
+- `App\Inc\driver\vofa_justfloat.h`。
+- `App\Src\driver\vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`。
-- `App\Src\m2006_driver.c`。
-- `App\Inc\m2006_driver.h`。
-- `App\Src\m2006_protocol.c`。
-- `App\Inc\m2006_protocol.h`。
+- `App\Src\driver\m2006_driver.c`。
+- `App\Inc\driver\m2006_driver.h`。
+- `App\Src\driver\m2006_protocol.c`。
+- `App\Inc\driver\m2006_protocol.h`。
 - `tests\m2006_protocol_test.c`。
-- `App\Src\m2006_control_task.c`。
-- `App\Inc\m2006_control_task.h`。
-- `App\Src\vofa_timestamp_task.c`。
-- `App\Inc\vofa_timestamp_task.h`。
+- `App\Src\task\m2006_control_task.c`。
+- `App\Inc\task\m2006_control_task.h`。
+- `App\Src\task\vofa_timestamp_task.c`。
+- `App\Inc\task\vofa_timestamp_task.h`。
 - `Lib\pid_lib\pid.h`。
 - `Lib\pid_lib\pid.c`。
 - `tests\pid_test.c`。
@@ -268,6 +272,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 同步机制决策：方案 B（git submodule）。因 PID 库定位为多项目复用，方案 A（复制同步）无法建立"库↔项目"双向版本链条，故弃用。
 - 注意事项：子模块 URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`；`protocol.file.allow=always` 为本地路径 clone 遗留配置，已写入本仓库 config，不影响远程拉取。
 - 将 submodule URL 切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（H723 commit `9ebdf96` 已推送）；临时目录 `git clone --recursive` 验证通过，子模块从远程 checkout `0964fc2`。
+- App 内部分层（本次）：m2006_control_task、vofa_timestamp_task 迁入 `App\Inc\task` / `App\Src\task`；m2006_driver、m2006_protocol、vofa_justfloat 迁入 `App\Inc\driver` / `App\Src\driver`；新建 `App\Inc\control` / `App\Src\control` 骨架（.gitkeep）预留速度/位置闭环。include 采用扁平策略（Keil include path 加三个子目录，源文件内 include 名不变）；uvprojx、命名检查器与测试同步更新；命名检查 PASS、单测 19/19、Keil 构建 0 Error 0 Warning。
 
 ### 2026 年 9 月 4 日
 
