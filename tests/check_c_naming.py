@@ -28,6 +28,9 @@ TARGET_RELATIVE_PATHS = (
     Path("App/Inc/vofa_timestamp_task.h"),
     Path("App/Src/vofa_timestamp_task.c"),
     Path("tests/m2006_protocol_test.c"),
+    Path("Lib/pid_lib/pid.h"),
+    Path("Lib/pid_lib/pid.c"),
+    Path("tests/pid_test.c"),
     Path("Core/Src/freertos.c"),
 )
 FREERTOS_RELATIVE_PATH = Path("Core/Src/freertos.c")
@@ -35,6 +38,7 @@ FREERTOS_RELATIVE_PATH = Path("Core/Src/freertos.c")
 MODULE_PREFIXES = (
     "vofa",
     "m2006",
+    "pid",
 )
 
 LEGACY_IDENTIFIERS = {

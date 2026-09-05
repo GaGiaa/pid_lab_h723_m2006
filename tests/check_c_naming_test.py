@@ -302,6 +302,139 @@ static void vofa_timestamp_task_entry(void *argument)
 """
 
 
+PID_HEADER_SOURCE = """\
+#ifndef PID_H
+#define PID_H
+
+#include <stdint.h>
+
+typedef enum
+{
+  PID_OK = 0,
+  PID_ERR_INVALID_DT,
+  PID_ERR_INVALID_LIMIT,
+} pid_status_t;
+
+typedef struct
+{
+  float kp;
+  float ki;
+  float kd;
+  float dt;
+  float out_min;
+  float out_max;
+  float error;
+  float output;
+  uint8_t is_valid;
+} pid_t;
+
+typedef struct
+{
+  float kp;
+  float ki;
+  float kd;
+  float dt;
+  float output;
+  uint8_t is_valid;
+} pid_inc_t;
+
+pid_status_t pid_init(pid_t *pid);
+void pid_reset(pid_t *pid);
+float pid_update(pid_t *pid, float setpoint, float measurement);
+
+pid_status_t pid_inc_init(pid_inc_t *pid);
+void pid_inc_reset(pid_inc_t *pid);
+float pid_inc_update(pid_inc_t *pid, float setpoint, float measurement);
+
+#endif /* PID_H */
+"""
+
+
+PID_SOURCE = """\
+#include \"pid.h\"
+
+pid_status_t pid_init(pid_t *pid)
+{
+  if (pid->dt <= 0.0f)
+  {
+    pid->is_valid = 0U;
+    return PID_ERR_INVALID_DT;
+  }
+  pid_reset(pid);
+  pid->is_valid = 1U;
+  return PID_OK;
+}
+
+void pid_reset(pid_t *pid)
+{
+  pid->error = 0.0f;
+  pid->output = 0.0f;
+}
+
+float pid_update(pid_t *pid, float setpoint, float measurement)
+{
+  if (pid->dt <= 0.0f)
+  {
+    return 0.0f;
+  }
+  pid->error = setpoint - measurement;
+  pid->output = pid->kp * pid->error;
+  return pid->output;
+}
+
+pid_status_t pid_inc_init(pid_inc_t *pid)
+{
+  if (pid->dt <= 0.0f)
+  {
+    pid->is_valid = 0U;
+    return PID_ERR_INVALID_DT;
+  }
+  pid_inc_reset(pid);
+  pid->is_valid = 1U;
+  return PID_OK;
+}
+
+void pid_inc_reset(pid_inc_t *pid)
+{
+  pid->output = 0.0f;
+}
+
+float pid_inc_update(pid_inc_t *pid, float setpoint, float measurement)
+{
+  if (pid->dt <= 0.0f)
+  {
+    return 0.0f;
+  }
+  pid->output += pid->kp * (setpoint - measurement);
+  return pid->output;
+}
+"""
+
+
+PID_TEST_SOURCE = """\
+#include \"pid.h\"
+
+int main(void)
+{
+  pid_t pid;
+  pid.kp = 1.0f;
+  pid.dt = 0.001f;
+  pid.out_min = -100.0f;
+  pid.out_max = 100.0f;
+  if (pid_init(&pid) != PID_OK)
+  {
+    return 1;
+  }
+  float output = pid_update(&pid, 10.0f, 0.0f);
+  if (output <= 0.0f)
+  {
+    return 1;
+  }
+  return 0;
+}
+"""
+
+
 class NamingCheckerTestCase(unittest.TestCase):
   def create_project(
       self,
@@ -320,6 +453,9 @@ class NamingCheckerTestCase(unittest.TestCase):
       m2006_control_task_source: str = M2006_CONTROL_TASK_SOURCE,
       vofa_timestamp_task_header_source: str = VOFA_TIMESTAMP_TASK_HEADER_SOURCE,
       vofa_timestamp_task_source: str = VOFA_TIMESTAMP_TASK_SOURCE,
+      pid_header_source: str = PID_HEADER_SOURCE,
+      pid_source: str = PID_SOURCE,
+      pid_test_source: str = PID_TEST_SOURCE,
   ) -> None:
     files = {
         "App/Inc/vofa_justfloat.h": header_source,
@@ -335,6 +471,9 @@ class NamingCheckerTestCase(unittest.TestCase):
         "App/Src/m2006_control_task.c": m2006_control_task_source,
         "App/Inc/vofa_timestamp_task.h": vofa_timestamp_task_header_source,
         "App/Src/vofa_timestamp_task.c": vofa_timestamp_task_source,
+        "Lib/pid_lib/pid.h": pid_header_source,
+        "Lib/pid_lib/pid.c": pid_source,
+        "tests/pid_test.c": pid_test_source,
     }
 
     for relative_path, source in files.items():
@@ -613,3 +752,34 @@ uint32_t vofa_justfloat_encode_float(void)
 
 if __name__ == "__main__":
   unittest.main()
+
+  def test_pid_compliant_project_has_no_violations(self) -> None:
+    self.assertEqual(self.scan_project(), [])
+
+  def test_reports_pid_public_function_without_prefix(self) -> None:
+    pid_source = PID_SOURCE.replace(
+        "float pid_update(pid_t *pid, float setpoint, float measurement)",
+        "float update(pid_t *pid, float setpoint, float measurement)",
+    )
+
+    violations = self.scan_project(pid_source=pid_source)
+
+    self.assert_has_violation(
+        violations,
+        "public_function_module_prefix",
+        "update",
+    )
+
+  def test_reports_pid_inc_public_function_without_prefix(self) -> None:
+    pid_source = PID_SOURCE.replace(
+        "float pid_inc_update(pid_inc_t *pid, float setpoint, float measurement)",
+        "float inc_update(pid_inc_t *pid, float setpoint, float measurement)",
+    )
+
+    violations = self.scan_project(pid_source=pid_source)
+
+    self.assert_has_violation(
+        violations,
+        "public_function_module_prefix",
+        "inc_update",
+    )

@@ -100,6 +100,8 @@
 - `tests\m2006_protocol_test.c`：主机端协议编解码测试。
 - `App\Src\m2006_control_task.c`、`App\Inc\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
 - `App\Src\vofa_timestamp_task.c`、`App\Inc\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
+- `Lib\pid_lib\pid.h`、`Lib\pid_lib\pid.c`：通用 PID 算法库（位置式 + 增量式），纯 C 实现，零平台依赖，可独立复用。
+- `tests\pid_test.c`：PID 库主机端单元测试（58 项断言，覆盖 P/PI/PD/限幅/斜坡/死区/滞回/滤波/条件积分/增量式等）。
 
 ### M2006 电机调试功能（C610 电调，FDCAN2）
 
@@ -132,6 +134,35 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 反馈超时：连续 500ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0。
 - 超速保护：输出轴转速绝对值超过 m2006_debug.speed_limit_rpm 时输出置 0。
 - 断使能：m2006_debug.is_enabled 为 0 时输出恒为 0。
+
+
+### 通用 PID 算法库（Lib/pid_lib）
+
+通用 PID 算法库，纯 C 实现，零平台依赖（不依赖 HAL/RTOS），可独立复用于任意 C 项目。
+
+**目录**：`Lib\pid_lib\pid.h`（类型定义+函数声明）、`Lib\pid_lib\pid.c`（实现）。
+
+**类型**：
+- `pid_status_t`：错误码枚举（`PID_OK` / `PID_ERR_INVALID_DT` / `PID_ERR_INVALID_LIMIT`）。
+- `pid_t`：位置式 PID 实例结构体（配置区 + 状态区）。
+- `pid_inc_t`：增量式 PID 实例结构体（配置区 + 状态区）。
+
+**函数**：
+- 位置式：`pid_init()`（检查配置+清状态，返回错误码）、`pid_reset()`（只清状态保留配置）、`pid_update(pid, setpoint, measurement)`（周期计算，返回输出）。
+- 增量式：`pid_inc_init()`、`pid_inc_reset()`、`pid_inc_update()`。
+
+**位置式特性**：设定值斜坡、梯形积分、条件积分（饱和停积分 + 大误差停积分，`integral_hold_error=0` 时只启用饱和停积分）、积分限幅、微分先行（始终开启）、微分滤波（对测量值低通后再微分）、输出限幅、死区滞回（死区内误差置零，退出需超 `deadband+hysteresis`）。
+
+**增量式特性**：设定值斜坡、梯形积分、微分先行、微分滤波、输出限幅（作用于累加后的绝对输出，内部维护累加器）、死区滞回；P/I/D 三项诊断变量为本次增量（Δp/Δi/Δd），`delta_u` 为总增量。无独立积分器，不需要积分限幅和条件积分。
+
+**配置约定**：
+- 配置区直接修改结构体字段即可，运行时可调参，不设 setter。
+- `dt` 必须 > 0，`pid_init` 检查，失败返回错误码且 `is_valid=0`；`pid_update` 入口也检查 `dt`，非法时安全返回 0。
+- 输出限幅 `out_min/out_max` 都为 0 时视为不限幅；积分限幅同理。
+- `setpoint_rate=0` 禁用斜坡；`deadband=0` 禁用死区；`d_filter_alpha=1` 不滤波。
+- 微分先行与梯形积分始终开启，无开关。
+
+**测试**：`tests\pid_test.c` 主机端单元测试，gcc 编译运行，58 项断言全部通过，覆盖 P/PI/PD 基本控制、输出限幅、不限幅（双零）、积分限幅、设定值斜坡、死区、死区滞回、dt=0 报错、reset 清状态、条件积分大误差停积分、微分滤波、增量式 P/PI/限幅/reset/dt 报错。
 
 ## 四、验证状态
 
@@ -181,6 +212,9 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - `App\Inc\m2006_control_task.h`。
 - `App\Src\vofa_timestamp_task.c`。
 - `App\Inc\vofa_timestamp_task.h`。
+- `Lib\pid_lib\pid.h`。
+- `Lib\pid_lib\pid.c`。
+- `tests\pid_test.c`。
 
 ### docs\superpowers 规则
 
@@ -229,6 +263,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 目录分层：新建 App 层（App\Inc / App\Src），将 vofa_justfloat、m2006_protocol、m2006_driver 及两个 RTOS 任务（m2006_control、vofa_timestamp）全部迁入 App；Core 目录仅保留 CubeMX 生成文件，freertos.c 的 USER CODE 区只留 osThreadNew 胶水调用，CubeMX 重新生成不受影响。
 - 为 m2006_debug 增加三个输出轴换算物理量（angle_out_deg / speed_out_rpm / torque_out_nm），并明确 angle_raw / speed_rpm / torque_raw 三个成员为电调回传原始值（未解析换算）；超速保护改用换算后的输出轴转速判断。
 - 力矩换算改用 M2006 官方手册转矩常数 0.18 N·m/A（输出轴等效值），替换此前按额定点反推的估算值 0.3333 N·m/A；交接文档补录 M2006 完整电机参数表。
+- 新增通用 PID 算法库（Lib\pid_lib\pid.h + pid.c）：位置式 + 增量式，纯 C 零平台依赖，支持设定值斜坡、梯形积分、条件积分、积分限幅、微分先行、微分滤波、输出限幅、死区滞回；配置区直接改结构体字段，dt=0 报错且安全返回；命名检查器加 pid 前缀，uvprojx 加 Lib/pid_lib include path 与源文件；新增 tests\pid_test.c 主机端 58 项单元测试全部通过，Keil 构建 0 Error 0 Warning。
 
 ### 2026 年 8 月 11 日
 
