@@ -46,7 +46,7 @@
 - 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并新增对应单元测试。
 - 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过。
 - 目录分层：新建 App 层（App\Inc / App\Src）收纳全部自有模块与两个 RTOS 任务，Core 仅保留 CubeMX 生成文件。
-- App 内部分层：task（RTOS 任务）/ driver（通信：协议+驱动）/ control（控制算法，预留）三个子目录，依赖单向 Task → Control → Driver → HAL；Keil include path、源文件路径、命名检查器同步更新，命名检查、单测与 Keil 构建均通过。
+- 新增 M2006 闭环控制层：位置环（位置式纯 P+死区）→ 速度环（增量式 PI）→ 电流设定 → driver 安全门 → C610 电流环；三模式（OPEN_LOOP/SPEED/POSITION）；多圈累计角度跨回绕连续、级联限幅、断使能双保险；调试面板 m2006_control_debug 与通信面板 m2006_debug 分离（电流限幅单一来源）；命名检查、单测与 Keil 构建均通过。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -102,7 +102,9 @@
 - `App\Src\driver\m2006_driver.c`、`App\Inc\driver\m2006_driver.h`：M2006 电机电流开环调试驱动。
 - `App\Src\driver\m2006_protocol.c`、`App\Inc\driver\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
 - `tests\m2006_protocol_test.c`：主机端协议编解码测试。
-- `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 电流开环控制任务。
+- `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 控制任务（开环/速度/位置三模式，先闭环后发送）。
+- `App\Src\control\m2006_control.c`、`App\Inc\control\m2006_control.h`：M2006 闭环控制层（多圈累计角度、位置环+速度环级联、独立调试面板）。
+- `tests\m2006_control_test.c`：闭环控制层主机端单元测试（回绕/模式/级联限幅/断使能）。
 - `App\Src\task\vofa_timestamp_task.c`、`App\Inc\task\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
 - `Lib\pid_lib`：git submodule，引用独立 PID 库仓库（路径与版本见"通用 PID 算法库"小节）。
 - `tests\pid_test.c`：PID 库主机端单元测试（58 项断言，覆盖 P/PI/PD/限幅/斜坡/死区/滞回/滤波/条件积分/增量式等）。
@@ -138,6 +140,29 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 反馈超时：连续 500ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0。
 - 超速保护：输出轴转速绝对值超过 m2006_debug.speed_limit_rpm 时输出置 0。
 - 断使能：m2006_debug.is_enabled 为 0 时输出恒为 0。
+
+### M2006 闭环控制（速度环 + 位置环）
+
+控制层位于 `App\Src\control\m2006_control.c`，1kHz 任务内每周期先算闭环再发送：`m2006_control_update()` → `m2006_driver_update()`。
+
+级联结构：位置环（位置式 pid_t，纯 P + 死区）输出速度设定 → 速度环（增量式 pid_inc_t，PI）输出电流设定 → `m2006_driver_set_current_setpoint()` 写入 → driver 安全门钳位 → C610 内部电流环。
+
+三模式（`m2006_control_debug.mode`）：
+- `M2006_CTRL_MODE_OPEN_LOOP`：电流开环，直通 `m2006_debug.current_setpoint`（Watch 手动设定）。
+- `M2006_CTRL_MODE_SPEED`：速度闭环，目标 `m2006_control_debug.speed_setpoint_rpm`（输出轴 rpm）。
+- `M2006_CTRL_MODE_POSITION`：位置闭环，目标 `m2006_control_debug.pos_setpoint_deg`（输出轴度），位置环输出限速 `pos_max_speed_rpm`。
+
+位置反馈：多圈累计角度，跨越 8191↔0 回绕连续；输出轴角度 = 累计 LSB × 360/(36×8191)°。
+
+调试面板 `m2006_control_debug`（Keil Watch 一键添加）与通信面板 `m2006_debug` 分离：
+- 可写：mode / pos_setpoint_deg / speed_setpoint_rpm / pos_pid_kp / pos_deadband_deg / pos_max_speed_rpm / spd_pid_kp / spd_pid_ki / spd_setpoint_rate。
+- 只读：pos_feedback_deg / speed_feedback_rpm / speed_cmd_rpm / current_cmd_raw / pos_in_deadband。
+- 电流限幅单一来源：`m2006_debug.current_limit`（control 层不复制，速度环输出限幅直接读它）。
+- 使能与转速限幅仍在 driver（安全门属驱动层）。
+
+调参顺序：先 SPEED 调速度环（kp 从小到大再加 ki），再 POSITION 调位置环（纯 P 起步、kp 从小增大、加死区防抖）。
+
+PID 初值：位置环 kp=5.0、ki=0、kd=0、输出 ±300rpm、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit、设定斜坡 300rpm/s。
 
 
 ### 通用 PID 算法库（Lib/pid_lib）
@@ -273,6 +298,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 注意事项：子模块 URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`；`protocol.file.allow=always` 为本地路径 clone 遗留配置，已写入本仓库 config，不影响远程拉取。
 - 将 submodule URL 切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（H723 commit `9ebdf96` 已推送）；临时目录 `git clone --recursive` 验证通过，子模块从远程 checkout `0964fc2`。
 - App 内部分层（本次）：m2006_control_task、vofa_timestamp_task 迁入 `App\Inc\task` / `App\Src\task`；m2006_driver、m2006_protocol、vofa_justfloat 迁入 `App\Inc\driver` / `App\Src\driver`；新建 `App\Inc\control` / `App\Src\control` 骨架（.gitkeep）预留速度/位置闭环。include 采用扁平策略（Keil include path 加三个子目录，源文件内 include 名不变）；uvprojx、命名检查器与测试同步更新；命名检查 PASS、单测 19/19、Keil 构建 0 Error 0 Warning。
+- M2006 闭环控制（本次）：新增 `App\Inc\control\m2006_control.h` / `App\Src\control\m2006_control.c`（累计角度纯函数、compute 纯函数、update 胶水、PID 实例、独立调试面板）与 `tests\m2006_control_test.c`（18 项断言）；`m2006_driver` 新增 `m2006_driver_set_current_setpoint()` 接口、`current_setpoint` 语义升级为驱动输入；`m2006_control_task` 编排改为闭环先于发送；uvprojx 源文件列表、命名检查器（含新单测 files dict）同步更新；验证：命名检查 PASS、单测 19/19、control 测试 18 asserts PASS、Keil 构建 0 Error 0 Warning。
 
 ### 2026 年 9 月 4 日
 

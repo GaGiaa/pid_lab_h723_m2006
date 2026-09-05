@@ -1,13 +1,14 @@
 /**
   ******************************************************************************
   * @file    m2006_driver.c
-  * @brief   M2006 电机（C610 电调）电流开环调试驱动实现
+  * @brief   M2006 电机（C610 电调）驱动层实现
   *
   * 使用 FDCAN2（PB12=RX / PB13=TX，AF9，经典 CAN 1Mbps）与 C610 电调通信。
   * 电调 ID 为 2，反馈帧标识符 0x202，控制帧标识符 0x200。
   *
   * 控制流程（由 1kHz 任务周期调用 m2006_driver_update()）：
-  *   目标电流 -> 电流钳位 -> 使能/超时/超速安全门 -> 编码 -> FDCAN2 发送
+  *   目标电流（开环：Watch 设定；闭环：m2006_control 层写入）-> 电流钳位
+ *   -> 使能/超时/超速安全门 -> 编码 -> FDCAN2 发送
   *
   * 所有调试变量集中在结构体 m2006_debug 中，Keil Watch 添加该实例即可
   * 一次查看并修改全部成员。
@@ -162,6 +163,11 @@ void m2006_driver_update(void)
   * @brief  FDCAN FIFO0 接收完成回调（HAL 弱回调，此处覆盖）
   * @note   只处理 FDCAN2 的电调反馈帧，解析后更新调试变量面板
   */
+void m2006_driver_set_current_setpoint(int16_t current_raw)
+{
+  m2006_debug.current_setpoint = current_raw;
+}
+
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan,
                                uint32_t rx_fifo0_it_flags)
 {

@@ -186,6 +186,68 @@ int main(void)
 """
 
 
+M2006_CONTROL_HEADER_SOURCE = """\
+#ifndef M2006_CONTROL_H
+#define M2006_CONTROL_H
+
+#include <stdint.h>
+
+typedef enum
+{
+  M2006_CTRL_MODE_OPEN_LOOP = 0,
+  M2006_CTRL_MODE_SPEED,
+  M2006_CTRL_MODE_POSITION,
+} m2006_ctrl_mode_t;
+
+typedef struct m2006_control_debug
+{
+  m2006_ctrl_mode_t mode;
+  float pos_setpoint_deg;
+} m2006_control_debug_t;
+
+extern volatile m2006_control_debug_t m2006_control_debug;
+
+int32_t m2006_control_accumulate_angle(uint16_t prev_raw, uint16_t raw);
+
+void m2006_control_init(void);
+void m2006_control_update(void);
+
+#endif /* M2006_CONTROL_H */
+"""
+
+M2006_CONTROL_SOURCE = """\
+#include "m2006_control.h"
+
+volatile m2006_control_debug_t m2006_control_debug = {
+  .mode = M2006_CTRL_MODE_OPEN_LOOP,
+};
+
+int32_t m2006_control_accumulate_angle(uint16_t prev_raw, uint16_t raw)
+{
+  return (int32_t)raw - (int32_t)prev_raw;
+}
+
+void m2006_control_init(void)
+{
+  m2006_control_debug.pos_setpoint_deg = 0.0f;
+}
+
+void m2006_control_update(void)
+{
+  m2006_control_debug.mode = M2006_CTRL_MODE_OPEN_LOOP;
+}
+"""
+
+M2006_CONTROL_TEST_SOURCE = """\
+#include "m2006_control.h"
+
+int main(void)
+{
+  (void)m2006_control_accumulate_angle(0U, 1U);
+  return 0;
+}
+"""
+
 M2006_CONTROL_TASK_HEADER_SOURCE = """\
 #ifndef M2006_CONTROL_TASK_H
 #define M2006_CONTROL_TASK_H
@@ -448,6 +510,9 @@ class NamingCheckerTestCase(unittest.TestCase):
       m2006_protocol_source: str = M2006_PROTOCOL_SOURCE,
       m2006_driver_header_source: str = M2006_DRIVER_HEADER_SOURCE,
       m2006_driver_source: str = M2006_DRIVER_SOURCE,
+      m2006_control_header_source: str = M2006_CONTROL_HEADER_SOURCE,
+      m2006_control_source: str = M2006_CONTROL_SOURCE,
+      m2006_control_test_source: str = M2006_CONTROL_TEST_SOURCE,
       m2006_test_source: str = M2006_TEST_SOURCE,
       m2006_control_task_header_source: str = M2006_CONTROL_TASK_HEADER_SOURCE,
       m2006_control_task_source: str = M2006_CONTROL_TASK_SOURCE,
@@ -466,6 +531,9 @@ class NamingCheckerTestCase(unittest.TestCase):
         "App/Src/driver/m2006_protocol.c": m2006_protocol_source,
         "App/Inc/driver/m2006_driver.h": m2006_driver_header_source,
         "App/Src/driver/m2006_driver.c": m2006_driver_source,
+        "App/Inc/control/m2006_control.h": m2006_control_header_source,
+        "App/Src/control/m2006_control.c": m2006_control_source,
+        "tests/m2006_control_test.c": m2006_control_test_source,
         "tests/m2006_protocol_test.c": m2006_test_source,
         "App/Inc/task/m2006_control_task.h": m2006_control_task_header_source,
         "App/Src/task/m2006_control_task.c": m2006_control_task_source,

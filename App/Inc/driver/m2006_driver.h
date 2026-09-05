@@ -1,13 +1,13 @@
 /**
   ******************************************************************************
   * @file    m2006_driver.h
-  * @brief   M2006 电机（C610 电调）电流开环调试驱动，基于 FDCAN2
+  * @brief   M2006 电机（C610 电调）驱动层：目标电流写入 + 安全门 + 反馈解析，基于 FDCAN2
   *
   * 使用方式（Keil 调试）：
   * 1. 在 Keil Debug 的 Watch 窗口添加结构体实例 m2006_debug，即可查看
   *    并修改全部调试变量（无需逐个添加）；
   * 2. 将 m2006_debug.is_enabled 置 1 使能输出；
-  * 3. 修改 m2006_debug.current_setpoint 控制输出电流
+  * 3. 修改 m2006_debug.current_setpoint 控制输出电流（开环调试；闭环模式由控制层写入）。
   *    （-10000~+10000，对应 ±10A）。
   *
   * 安全保护（均在驱动内自动执行，参数可通过结构体成员调整）：
@@ -34,7 +34,8 @@ typedef struct m2006_debug
   /* 输出使能：0 断输出（电流恒为 0），1 使能控制 */
   uint8_t is_enabled;
 
-  /* 电流开环目标电流，范围 -10000~+10000，对应 -10A~+10A */
+  /* 目标电流（驱动输入），范围 -10000~+10000，对应 -10A~+10A；
+     OPEN_LOOP 模式由 Watch 手动设定，闭环模式由 m2006_control 层写入 */
   int16_t current_setpoint;
 
   /* 电流钳位限幅，输出电流绝对值不超过该值（默认 3000 = 3A） */
@@ -95,5 +96,12 @@ void m2006_driver_init(void);
   * @brief  周期更新控制：换算/钳位/安全门/编码/发送，建议 1kHz 周期调用
   */
 void m2006_driver_update(void);
+
+/**
+  * @brief  设置目标电流（驱动输入）
+  * @note   开环调试直接修改 m2006_debug.current_setpoint 亦可；
+  *         闭环模式由 m2006_control 层调用本接口写入。
+  */
+void m2006_driver_set_current_setpoint(int16_t current_raw);
 
 #endif /* M2006_DRIVER_H */

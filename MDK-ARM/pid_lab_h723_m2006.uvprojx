@@ -435,6 +435,11 @@
               <FilePath>../App/Src/task/vofa_timestamp_task.c</FilePath>
             </File>
             <File>
+              <FileName>m2006_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../App/Src/control/m2006_control.c</FilePath>
+            </File>
+            <File>
               <FileName>pid.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Lib/pid_lib/src/pid.c</FilePath>
