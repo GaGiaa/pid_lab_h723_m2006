@@ -41,7 +41,7 @@ static int g_test_fail = 0;
     }                                                           \
   } while (0)
 
-#define M2006_M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(actual, expected, eps, msg)       \
+#define M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(actual, expected, eps, msg)       \
   do {                                                          \
     g_test_count++;                                            \
     if (fabsf((float)(actual) - (float)(expected)) > (float)(eps)) { \
@@ -289,7 +289,7 @@ static int test_position_error_maps_to_speed_cmd(void)
   result = m2006_control_compute_current(&cfg, 0.0f, 0.0f,
                                          &pos_pid, &spd_pid,
                                          3000, 0, 1U);
-  M2006_M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(cfg.speed_cmd_rpm, 50.0f, 0.01f,
+  M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(cfg.speed_cmd_rpm, 50.0f, 0.01f,
                                  "position error -> speed cmd");
   return result != 0;
 }
@@ -311,9 +311,34 @@ static int test_position_clamps_speed_cmd(void)
   result = m2006_control_compute_current(&cfg, 0.0f, 0.0f,
                                          &pos_pid, &spd_pid,
                                          3000, 0, 1U);
-  M2006_M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(cfg.speed_cmd_rpm, 300.0f, 0.01f,
+  M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(cfg.speed_cmd_rpm, 300.0f, 0.01f,
                                  "position speed cmd clamped");
   M2006_CONTROL_TEST_ASSERT(result == 3000, "cascade current clamped to limit");
+  return 1;
+}
+
+static int test_position_no_clamp_when_max_speed_zero(void)
+{
+  volatile m2006_control_debug_t cfg;
+  pid_t pos_pid;
+  pid_inc_t spd_pid;
+  int16_t result;
+
+  cfg_reset(&cfg);
+  cfg.mode = M2006_CTRL_MODE_POSITION;
+  cfg.pos_setpoint_deg = 100.0f;
+  cfg.pos_pid_kp = 5.0f;
+  cfg.pos_max_speed_rpm = 0.0f;   /* 0 = 不限幅（PID 库 out_min==out_max==0 语义） */
+  pos_pid_config(&pos_pid);
+  spd_pid_config(&spd_pid);
+
+  /* 误差 100° × kp 5 = 500 rpm：不限幅时应原样输出，不应被钳到 300 */
+  result = m2006_control_compute_current(&cfg, 0.0f, 0.0f,
+                                         &pos_pid, &spd_pid,
+                                         3000, 0, 1U);
+  M2006_CONTROL_TEST_ASSERT_FLOAT_NEAR(cfg.speed_cmd_rpm, 500.0f, 0.01f,
+                                       "pos no clamp when max speed zero");
+  M2006_CONTROL_TEST_ASSERT(result != 0, "pos no-clamp still drives current");
   return 1;
 }
 
@@ -357,6 +382,8 @@ int main(void)
                       "position error maps to speed cmd");
   M2006_CONTROL_TEST_ASSERT(test_position_clamps_speed_cmd(),
                       "position clamps speed cmd");
+  M2006_CONTROL_TEST_ASSERT(test_position_no_clamp_when_max_speed_zero(),
+                      "position no clamp when max speed zero");
   M2006_CONTROL_TEST_ASSERT(test_unknown_mode_outputs_zero(), "unknown mode zero");
 
   if (g_test_fail != 0)

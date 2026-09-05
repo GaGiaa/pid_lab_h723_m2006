@@ -25,9 +25,9 @@
 #define M2006_DRIVER_FEEDBACK_ID (0x202U)   /* 反馈帧标识符 = 0x200 + 电调ID */
 
 /* 安全保护默认值 */
-#define M2006_DRIVER_RX_TIMEOUT_MS (500U)   /* 反馈超时判定时间 */
-#define M2006_DRIVER_CURRENT_LIMIT_DEFAULT (3000)   /* 默认电流钳位 3A */
-#define M2006_DRIVER_SPEED_LIMIT_DEFAULT_RPM (500)  /* 默认输出轴转速限幅 */
+#define M2006_DRIVER_RX_TIMEOUT_MS (20)   /* 反馈超时判定时间 */
+#define M2006_DRIVER_CURRENT_LIMIT_DEFAULT (10000)   /* 默认电流钳位 10A（电调满量程；调试放开，带负载/上线前应收回到 3A 额定） */
+#define M2006_DRIVER_SPEED_LIMIT_DEFAULT_RPM (0)  /* 默认超速保护阈值：0 = 关闭保护（调试期默认），>0 时生效 */
 
 /* 输出轴角度换算：转子一圈 360° 经 36:1 减速 = 输出轴 10°/圈，再按 8191 归一 */
 #define M2006_DRIVER_ANGLE_SCALE_DEG \
@@ -128,8 +128,9 @@ void m2006_driver_update(void)
   else
   {
     speed_limit_rpm = m2006_debug.speed_limit_rpm;
-    if ((m2006_debug.speed_out_rpm > (float)speed_limit_rpm)
-        || (m2006_debug.speed_out_rpm < -(float)speed_limit_rpm))
+    if ((speed_limit_rpm > 0)
+        && ((m2006_debug.speed_out_rpm > (float)speed_limit_rpm)
+            || (m2006_debug.speed_out_rpm < -(float)speed_limit_rpm)))
     {
       output_current = 0;
     }

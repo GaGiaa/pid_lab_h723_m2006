@@ -128,7 +128,7 @@
 
 Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 一键添加结构体实例 `m2006_debug`，即可查看并修改全部调试变量（无需逐个添加）。
-- 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 3000）、`m2006_debug.speed_limit_rpm`（输出轴转速限幅，默认 500）。
+- 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 10000 = 10A，调试放开，带负载/上线前应收回 3A）、`m2006_debug.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭保护，>0 时生效）。
 - 只读成员：
   - 电调回传原始值（未解析换算）：`m2006_debug.angle_raw`（转子机械角度编码 0~8191）、`m2006_debug.speed_rpm`（转子转速 rpm，÷36 为输出轴）、`m2006_debug.torque_raw`（“实际输出转矩”编码，实为电流环反馈电流，1000 LSB = 1A）；
   - 输出轴换算值（驱动 1kHz 内换算）：`m2006_debug.angle_out_deg`（输出轴角度°）、`m2006_debug.speed_out_rpm`（输出轴转速 rpm）、`m2006_debug.torque_out_nm`（输出轴力矩 N·m，= 电流 A × 0.18，M2006 官方转矩常数）；
@@ -136,9 +136,9 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_debug.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_debug.is_enabled` 置 1，从较小的 `m2006_debug.current_setpoint`（如 500）开始缓慢增大。
 
 安全保护（驱动内自动执行，参数可调）：
-- 电流钳位：输出电流限制在 ±m2006_debug.current_limit（默认 ±3000 = 3A，即 M2006 额定电流）。
-- 反馈超时：连续 500ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0。
-- 超速保护：输出轴转速绝对值超过 m2006_debug.speed_limit_rpm 时输出置 0。
+- 电流钳位：输出电流限制在 ±m2006_debug.current_limit（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
+- 反馈超时：连续 20ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0（1kHz 下正常每 1ms 一帧反馈）。
+- 超速保护：speed_limit_rpm > 0 时，输出轴转速绝对值超过它则输出置 0；speed_limit_rpm = 0 表示关闭超速保护（调试期默认关闭）。
 - 断使能：m2006_debug.is_enabled 为 0 时输出恒为 0。
 
 ### M2006 闭环控制（速度环 + 位置环）
@@ -162,7 +162,7 @@ Keil 调试方法（在 Debug 界面 Watch 窗口）：
 
 调参顺序：先 SPEED 调速度环（kp 从小到大再加 ki），再 POSITION 调位置环（纯 P 起步、kp 从小增大、加死区防抖）。
 
-PID 初值：位置环 kp=5.0、ki=0、kd=0、输出 ±300rpm、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit、设定斜坡 300rpm/s。
+PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rpm=0 即不限幅，误差大时速度设定=误差×kp）、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit、设定斜坡 spd_setpoint_rate=0（禁用斜坡，设定直通）。
 
 
 ### 通用 PID 算法库（Lib/pid_lib）
