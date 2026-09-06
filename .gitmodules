@@ -1,3 +1,6 @@
 [submodule "Lib/pid_lib"]
 	path = Lib/pid_lib
 	url = https://github.com/GaGiaa/pid_lib.git
+[submodule "Lib/m2006_lib"]
+	path = Lib/m2006_lib
+	url = https://github.com/GaGiaa/m2006_lib.git
