@@ -22,7 +22,7 @@
 - `App\Inc\task`、`App\Src\task`：RTOS 任务层（m2006_control_task、vofa_timestamp_task）。
 - `App\Inc\driver`、`App\Src\driver`：通信适配层（m2006_hal FDCAN2 适配、vofa_justfloat 纯协议编码）。
 - `App\Inc\control`、`App\Src\control`：预留骨架（.gitkeep），控制算法已下沉至 `Lib\m2006_lib`。
-- `Lib\m2006_lib`：M2006 电机复用库（纯 C 零 HAL：protocol 协议层、motor 电机实例、bus 总线实例，含主机端单测），目录结构与 pid_lib 同构（include/src/tests）。
+- `Lib\m2006_lib`：M2006 电机复用库（git submodule，独立仓库 `GaGiaa/m2006_lib`，纯 C 零 HAL：protocol 协议层、motor 电机实例、bus 总线实例，含主机端单测），目录结构与 pid_lib 同构（include/src/tests）。
 - `tests`：可在主机端运行的协议/命名检查验证程序。
 - `pid_lab_h723_m2006.ioc`：CubeMX 工程配置文件。
 
@@ -44,7 +44,7 @@
 - 新增 M2006 电机（配合 C610 电调，电调 ID=2）驱动与 1kHz 控制任务，接入 FDCAN2（PB12/PB13，经典 CAN 1Mbps）；控制能力：开环 / 速度环 / 位置环三模式，多圈累计角度跨回绕连续、级联限幅、超时/超速/断使能安全门。
 - 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006、pid），并新增对应单元测试。
 - 目录分层：新建 App 层（App\Inc / App\Src）收纳自有模块与 RTOS 任务，Core 仅保留 CubeMX 生成文件。
-- 【本次】将 M2006 全部逻辑抽为可复用库 `Lib\m2006_lib`（protocol 协议层 / motor 电机实例 / bus 总线实例，纯 C 零 HAL，与 pid_lib 同构 include/src/tests）；本工程 App 旧 m2006 代码删除，改为 HAL 适配层（m2006_hal）+ 1kHz 任务编排（m2006_control_task）调用库；支持一路 CAN 挂多电机（ID 1~8，控制帧 0x200/0x1FF）与多路 CAN 各挂独立总线实例。当前 `Lib\m2006_lib` 为普通目录，暂不建独立 git 仓库/不接 submodule（后续按 pid_lib 工作流独立化）。命名检查、库单测、命名单测与 Keil 构建均通过。
+- 【本次】将 M2006 全部逻辑抽为可复用库 `Lib\m2006_lib`（protocol 协议层 / motor 电机实例 / bus 总线实例，纯 C 零 HAL，与 pid_lib 同构 include/src/tests）；本工程 App 旧 m2006 代码删除，改为 HAL 适配层（m2006_hal）+ 1kHz 任务编排（m2006_control_task）调用库；支持一路 CAN 挂多电机（ID 1~8，控制帧 0x200/0x1FF）与多路 CAN 各挂独立总线实例。当前 `Lib\m2006_lib` 已独立为 git 仓库（GitHub `GaGiaa/m2006_lib`，public，develop 分支，首提交 `6e203b6`）并以 submodule 接入本工程（gitlink 提交 `5df2024`），与 pid_lib 同一套工作流。命名检查、库单测、命名单测与 Keil 构建均通过。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -191,7 +191,7 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 
 ### M2006 复用库（Lib\m2006_lib）
 
-> 2026 年 9 月 6 日起，M2006 全部逻辑从本工程 App 抽为独立复用库 `Lib\m2006_lib`，纯 C 零 HAL（不依赖 HAL/RTOS），目录结构 include/src/tests 与 pid_lib 同构。**当前为普通目录（非 git submodule），后续独立为 git 仓库并以 submodule 接入由用户决定时机**——届时按 pid_lib 工作流执行（独立仓库 + 推送远程 + 本工程切 gitlink）。
+> 2026 年 9 月 6 日起，M2006 全部逻辑从本工程 App 抽为独立复用库 `Lib\m2006_lib`，纯 C 零 HAL（不依赖 HAL/RTOS），目录结构 include/src/tests 与 pid_lib 同构。**已独立为 git 仓库（GitHub `GaGiaa/m2006_lib`，public，默认分支 develop，首提交 `6e203b6`，已推送）并以 submodule 接入本工程（gitlink 提交 `5df2024`）**，工作流与 pid_lib 一致：改库在独立仓库提交并推送，再回到本工程升级子模块指针（进入 `Lib/m2006_lib` 执行 `git fetch` + `git checkout <版本>`，然后在本工程提交更新后的 gitlink）。
 
 **设计动机**：后续工程可能一路 CAN 挂多个 M2006（C610 电调 ID 1~8）并在不同 CAN 上使用各自的速度环/位置环。库把"协议 → 电机实例 → 总线"三层拆开，电机与总线均可多实例化：
 
@@ -264,7 +264,7 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 ### submodule 规则
 
 - `Lib\pid_lib` 是 git submodule，引用独立 PID 库仓库；子模块内容由独立仓库管理，不在本工程内直接修改。
-- `Lib\m2006_lib` 当前为普通目录（暂不建独立仓库、不接 submodule）；后续独立化并 submodule 接入后，本规则同样适用。
+- `Lib\m2006_lib` 是 git submodule，引用独立 M2006 库仓库（`https://github.com/GaGiaa/m2006_lib.git`）；子模块内容由独立仓库管理，不在本工程内直接修改。
 - 本仓库 config 保留 `protocol.file.allow=always`（早期本地路径 clone 的遗留配置，远程拉取不受影响，可保留）。
 - submodule URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（commit `9ebdf96` 已推送）；克隆本工程需使用 `git clone --recursive` 以带出子模块。
 
@@ -311,6 +311,7 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 - 本工程迁移：新增 `App\Inc\driver\m2006_hal.h/.c`（FDCAN2 滤波/中断取帧分发/发送，持有 m2006_hal_bus）；重写 `App\Src\task\m2006_control_task.c`（实例化 m2006_motor + 编排"闭环→打包→发送"，freertos.c 任务创建接口不变）；删除 App 下 m2006_protocol/driver/control 旧文件与 tests 两个旧 m2006 测试；uvprojx include path 加 `../Lib/m2006_lib/include`、源文件替换为库三源 + m2006_hal.c；命名检查器与单测 fixture 同步更新（m2006_lib 文件纳入检查）。
 - 库主机端测试：protocol 15 用例、motor 37 断言、bus 48 断言全部 PASS（bus 打包修复两遍式帧序问题与 esc7 偏移断言）；命名检查 PASS、命名单测 19/19、Keil 完整重建 0 Error 0 Warning。
 - 迁移决策（用户明确）：库获得完整重构代码、本工程 App 旧代码删除并改为调用库、**先不建独立 git 仓库、不接 submodule**；`Lib\m2006_lib` 后续独立为 git 仓库并以 submodule 接入由用户决定时机。
+- 【本次】m2006_lib 独立化 + submodule 接入：GitHub 创建 `GaGiaa/m2006_lib`（public，默认分支 develop，首提交 `6e203b6`，11 文件 = 库三源 + tests + 新增 .gitignore/README）；主仓库 `git rm --cached` 移除 blob 跟踪、.gitmodules 注册子模块、提交 gitlink（`5df2024`）；`git submodule status` 两个子模块（pid_lib/m2006_lib）均正常，工作区文件保留（Keil 路径不受影响）。push 时 GitHub 443 直连被网络干扰，经本机 Clash Verge（127.0.0.1:7897）代理完成推送（`git -c http.proxy=...` 临时参数，未改全局配置），后续 clone/update 子模块如直连超时同样需走代理。主仓库 `5df2024` 未推送（ahead 1，推送时机由用户决定）。
 
 ### 2026 年 9 月 5 日
 
