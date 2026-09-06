@@ -35,6 +35,7 @@ MDK-ARM/*.sct
 
 # 主机端临时测试程序
 tests/*.exe
+Lib/m2006_lib/tests/*.exe
 
 # Python 主机端检查器缓存
 tests/__pycache__/

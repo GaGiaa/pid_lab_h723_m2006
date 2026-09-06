@@ -2,7 +2,7 @@
 
 > 本文件是本项目的唯一 AI 交接入口。后续接手本项目的 AI，在处理任何开发任务前，必须先阅读本文件和 `docs\c_naming_convention.md`，再检查实际代码和 Git 工作区状态。
 
-最后更新日期：2026 年 9 月 5 日
+最后更新日期：2026 年 9 月 6 日
 
 ## 一、项目概况
 
@@ -20,9 +20,10 @@
 - `Middlewares`：FreeRTOS、CMSIS-RTOS2 和 ARM DSP 相关中间件。
 - `MDK-ARM`：Keil 工程文件、启动文件以及本机生成的构建和调试文件。
 - `App\Inc\task`、`App\Src\task`：RTOS 任务层（m2006_control_task、vofa_timestamp_task）。
-- `App\Inc\driver`、`App\Src\driver`：通信层（m2006_protocol 纯协议编解码、m2006_driver FDCAN 驱动、vofa_justfloat 纯协议编码）。
-- `App\Inc\control`、`App\Src\control`：控制算法层（预留，速度/位置闭环将放入此处，依赖 Lib\pid_lib）。
-- `tests`：可在主机端运行的协议编码验证程序。
+- `App\Inc\driver`、`App\Src\driver`：通信适配层（m2006_hal FDCAN2 适配、vofa_justfloat 纯协议编码）。
+- `App\Inc\control`、`App\Src\control`：预留骨架（.gitkeep），控制算法已下沉至 `Lib\m2006_lib`。
+- `Lib\m2006_lib`：M2006 电机复用库（纯 C 零 HAL：protocol 协议层、motor 电机实例、bus 总线实例，含主机端单测），目录结构与 pid_lib 同构（include/src/tests）。
+- `tests`：可在主机端运行的协议/命名检查验证程序。
 - `pid_lab_h723_m2006.ioc`：CubeMX 工程配置文件。
 
 ## 二、当前开发进度
@@ -40,13 +41,10 @@
 - 增加主机端 JustFloat 字节编码测试。
 - 完成主机端测试和 Keil 工程构建验证。
 - 已完成硬件验证：最初 VOFA 无数据的原因是 UART8 物理接线松动；接线恢复后，VOFA 已经可以正常接收数据。
-- 新增 M2006 电机（配合 C610 电调，电调 ID=2）电流开环调试驱动，接入 FDCAN2（PB12/PB13，经典 CAN 1Mbps）。
-- 新增 m2006_protocol 纯协议编解码模块与 m2006_driver HAL 驱动模块。
-- 新增 1kHz 电流开环控制任务 m2006_control，可在 Keil Watch 窗口修改全局变量在线调试。
-- 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006），并新增对应单元测试。
-- 新增主机端 m2006_protocol_test 协议测试；命名检查、单元测试与 Keil 构建均通过。
-- 目录分层：新建 App 层（App\Inc / App\Src）收纳全部自有模块与两个 RTOS 任务，Core 仅保留 CubeMX 生成文件。
-- 新增 M2006 闭环控制层：位置环（位置式纯 P+死区）→ 速度环（增量式 PI）→ 电流设定 → driver 安全门 → C610 电流环；三模式（OPEN_LOOP/SPEED/POSITION）；多圈累计角度跨回绕连续、级联限幅、断使能双保险；调试面板 m2006_control_debug 与通信面板 m2006_debug 分离（电流限幅单一来源）；命名检查、单测与 Keil 构建均通过。
+- 新增 M2006 电机（配合 C610 电调，电调 ID=2）驱动与 1kHz 控制任务，接入 FDCAN2（PB12/PB13，经典 CAN 1Mbps）；控制能力：开环 / 速度环 / 位置环三模式，多圈累计角度跨回绕连续、级联限幅、超时/超速/断使能安全门。
+- 将命名检查器前缀规则泛化为多模块前缀（vofa、m2006、pid），并新增对应单元测试。
+- 目录分层：新建 App 层（App\Inc / App\Src）收纳自有模块与 RTOS 任务，Core 仅保留 CubeMX 生成文件。
+- 【本次】将 M2006 全部逻辑抽为可复用库 `Lib\m2006_lib`（protocol 协议层 / motor 电机实例 / bus 总线实例，纯 C 零 HAL，与 pid_lib 同构 include/src/tests）；本工程 App 旧 m2006 代码删除，改为 HAL 适配层（m2006_hal）+ 1kHz 任务编排（m2006_control_task）调用库；支持一路 CAN 挂多电机（ID 1~8，控制帧 0x200/0x1FF）与多路 CAN 各挂独立总线实例。当前 `Lib\m2006_lib` 为普通目录，暂不建独立 git 仓库/不接 submodule（后续按 pid_lib 工作流独立化）。命名检查、库单测、命名单测与 Keil 构建均通过。
 
 ## 三、UART8 和 VOFA 功能说明
 
@@ -99,12 +97,14 @@
 - `docs\c_naming_convention.md`：项目自有 C 代码的强制命名规范和复查流程。
 - `tests\check_c_naming.py`：项目自有 C 代码的自动命名检查器。
 - `tests\check_c_naming_test.py`：命名检查器的主机端单元测试。
-- `App\Src\driver\m2006_driver.c`、`App\Inc\driver\m2006_driver.h`：M2006 电机电流开环调试驱动。
-- `App\Src\driver\m2006_protocol.c`、`App\Inc\driver\m2006_protocol.h`：C610 电调 CAN 协议编解码纯函数。
-- `tests\m2006_protocol_test.c`：主机端协议编解码测试。
-- `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 控制任务（开环/速度/位置三模式，先闭环后发送）。
-- `App\Src\control\m2006_control.c`、`App\Inc\control\m2006_control.h`：M2006 闭环控制层（多圈累计角度、位置环+速度环级联、独立调试面板）。
-- `tests\m2006_control_test.c`：闭环控制层主机端单元测试（回绕/模式/级联限幅/断使能）。
+- `Lib\m2006_lib\include\m2006_protocol.h`、`Lib\m2006_lib\src\m2006_protocol.c`：C610 电调 CAN 协议编解码纯函数（控制帧 0x200/0x1FF、反馈帧 0x200+ID、角度回绕展开、物理量换算常量）。
+- `Lib\m2006_lib\include\m2006_motor.h`、`Lib\m2006_lib\src\m2006_motor.c`：M2006 电机实例（透明结构体：反馈换算、多圈累计角度、开环/速度/位置三模式级联闭环、安全门；tick 由调用者传入，依赖 pid_lib）。
+- `Lib\m2006_lib\include\m2006_bus.h`、`Lib\m2006_lib\src\m2006_bus.c`：M2006 总线实例（最多 8 电机按 esc_id-1 槽位注册、0x200/0x1FF 控制帧聚合打包、反馈帧分发）。
+- `Lib\m2006_lib\tests\m2006_protocol_test.c`：协议层主机端测试（15 用例）。
+- `Lib\m2006_lib\tests\m2006_motor_test.c`：电机实例主机端单元测试（37 断言）。
+- `Lib\m2006_lib\tests\m2006_bus_test.c`：总线实例主机端单元测试（48 断言）。
+- `App\Inc\driver\m2006_hal.h`、`App\Src\driver\m2006_hal.c`：本工程 FDCAN2 适配层（滤波/中断取帧分发/发送，持有总线实例 m2006_hal_bus）。
+- `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 控制任务（电机实例 m2006_motor + 总线打包 + HAL 发送）。
 - `App\Src\task\vofa_timestamp_task.c`、`App\Inc\task\vofa_timestamp_task.h`：VOFA 时间戳上报任务。
 - `Lib\pid_lib`：git submodule，引用独立 PID 库仓库（路径与版本见"通用 PID 算法库"小节）。
 - `tests\pid_test.c`：PID 库主机端单元测试（58 项断言，覆盖 P/PI/PD/限幅/斜坡/死区/滞回/滤波/条件积分/增量式等）。
@@ -120,45 +120,39 @@
 - 相电阻 461 mΩ；相电感 64.22 μH；极对数 7；减速比 36:1；减速电机重量 90 g；最大径向载荷（动载荷）495 N；使用环境温度 0-55℃。
 - 注：相电阻/相电感/极对数为电机本体参数，可用于后续电流环建模或 FOC；转矩常数判定为输出轴等效值（推理见上）。
 
-控制协议：
-- 控制帧：标准帧 0x200，DLC=8，每电调 ID 占 2 字节（高字节在前）；电流值 -10000~+10000 对应 -10A~+10A，即 1000 LSB/A。ID=2 的电流位于 DATA[2..3]。
-- 反馈帧：标准帧 0x200+电调ID（即 0x202），DLC=8；DATA[0..1] 转子机械角度 0~8191，DATA[2..3] 转子转速 rpm（int16），DATA[4..5] 实际输出转矩（int16）。
+控制协议（C610 + M2006，DLC=8）：
+- 控制帧：标准帧 0x200（电调 ID 1~4）与 0x1FF（电调 ID 5~8）；每电调 ID 占 2 字节（高字节在前），组内偏移 = (ID-1)%4 × 2；电流值 -10000~+10000 对应 -10A~+10A，即 1000 LSB/A。ID=2 的电流位于 0x200 帧 DATA[2..3]，ID=7 的电流位于 0x1FF 帧 DATA[4..5]。
+- 反馈帧：标准帧 0x200+电调ID（1~8 全覆盖，即 0x201~0x208；本电机 ID=2 → 0x202），DLC=8；DATA[0..1] 转子机械角度 0~8191，DATA[2..3] 转子转速 rpm（int16），DATA[4..5] 实际输出转矩（int16）。
 - 反馈角度/转速均为转子（高速侧）原始值，输出轴转速 = 转速值 ÷ 36（M2006 减速比）。
 - 反馈字段说明：DATA[4..5]“实际输出转矩”实为电调电流环反馈的实际输出电流（C610 只能测电流、不能测机械力矩），换算口径与控制指令同量纲：1000 LSB = 1A（即 -10000~+10000 对应 -10A~+10A）。真正的机械力矩 = 电流 × 转矩常数 × 减速比 × 效率。M2006 官方手册给出转矩常数 0.18 N·m/A（输出轴等效值，已含 36:1 减速比与传动效率；若为电机本体值则经减速后会远超额定，故判定为输出轴等效值，与额定点 3A→约 0.54 N·m 自洽）。驱动输出轴力矩换算：torque_out_nm = 电流(A) × 0.18 = torque_raw × 0.18 / 1000。
 
 Keil 调试方法（在 Debug 界面 Watch 窗口）：
-- 一键添加结构体实例 `m2006_debug`，即可查看并修改全部调试变量（无需逐个添加）。
-- 可写成员：`m2006_debug.is_enabled`（0 断输出/1 使能）、`m2006_debug.current_setpoint`（目标电流 ±10000）、`m2006_debug.current_limit`（电流钳位，默认 10000 = 10A，调试放开，带负载/上线前应收回 3A）、`m2006_debug.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭保护，>0 时生效）。
-- 只读成员：
-  - 电调回传原始值（未解析换算）：`m2006_debug.angle_raw`（转子机械角度编码 0~8191）、`m2006_debug.speed_rpm`（转子转速 rpm，÷36 为输出轴）、`m2006_debug.torque_raw`（“实际输出转矩”编码，实为电流环反馈电流，1000 LSB = 1A）；
-  - 换算值（驱动 1kHz 内换算）：`m2006_debug.angle_raw_deg`（转子单圈相位角°，0~360° 随编码器回绕）、`m2006_debug.angle_total_deg`（输出轴累计角度°，多圈连续不回绕）、`m2006_debug.speed_out_rpm`（输出轴转速 rpm）、`m2006_debug.torque_out_nm`（输出轴力矩 N·m，= 电流 A × 0.18，M2006 官方转矩常数）；
-  - 其他：`m2006_debug.output_current`、`m2006_debug.rx_msg_count`、`m2006_debug.is_rx_timeout`、`m2006_debug.tx_fail_count`。
-- 调试流程：烧录后运行，先在 Watch 中确认 `m2006_debug.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_debug.is_enabled` 置 1，从较小的 `m2006_debug.current_setpoint`（如 500）开始缓慢增大。
+- 一键添加结构体实例 `m2006_motor`（本工程电机实例，m2006_control_task.c 定义），即可查看并修改全部配置与观测变量（等价于原 m2006_debug + m2006_control_debug 两个面板合并）。
+- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint`（开环目标电流 ±10000）、`m2006_motor.current_limit`（电流钳位，默认 10000 = 10A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
+- 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current`（实际下发电流）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw`、`pos_in_deadband`。
+- 总线调试：Keil Watch 添加 `m2006_hal_bus` 查看总线实例（motor_slots 槽位挂载）；`m2006_hal_tx_fail_count` 查看发送失败计数。
+- 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint`（如 500）开始缓慢增大。
 
-安全保护（驱动内自动执行，参数可调）：
-- 电流钳位：输出电流限制在 ±m2006_debug.current_limit（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
-- 反馈超时：连续 20ms 未收到反馈（`m2006_debug.is_rx_timeout` 置 1）时输出强制置 0（1kHz 下正常每 1ms 一帧反馈）。
+安全保护（m2006_motor_update 内自动执行，参数可调）：
+- 电流钳位：输出电流限制在 ±m2006_motor.current_limit（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
+- 反馈超时：连续 20ms 未收到反馈（`m2006_motor.is_rx_timeout` 置 1）时输出强制置 0（1kHz 下正常每 1ms 一帧反馈）；tick 由调用者传入，超时判定在库内可测。
 - 超速保护：speed_limit_rpm > 0 时，输出轴转速绝对值超过它则输出置 0；speed_limit_rpm = 0 表示关闭超速保护（调试期默认关闭）。
-- 断使能：m2006_debug.is_enabled 为 0 时输出恒为 0。
+- 断使能：m2006_motor.is_enabled 为 0 时输出恒为 0。
 
 ### M2006 闭环控制（速度环 + 位置环）
 
-控制层位于 `App\Src\control\m2006_control.c`，1kHz 任务内每周期先算闭环再发送：`m2006_control_update()` → `m2006_driver_update()`。
+闭环逻辑位于 `Lib\m2006_lib\src\m2006_motor.c`，1kHz 任务（`m2006_control_task.c`）每周期先 `m2006_motor_update(&m2006_motor, tick)` 再打包发送。
 
-级联结构：位置环（位置式 pid_t，纯 P + 死区）输出速度设定 → 速度环（增量式 pid_inc_t，PI）输出电流设定 → `m2006_driver_set_current_setpoint()` 写入 → driver 安全门钳位 → C610 内部电流环。
+级联结构（库内 m2006_motor_update 执行）：位置环（位置式 pid_t，纯 P + 死区）输出速度设定 → 速度环（增量式 pid_inc_t，PI）输出电流设定 → 电流钳位/安全门 → C610 内部电流环。
 
-三模式（`m2006_control_debug.mode`）：
-- `M2006_CTRL_MODE_OPEN_LOOP`：电流开环，直通 `m2006_debug.current_setpoint`（Watch 手动设定）。
-- `M2006_CTRL_MODE_SPEED`：速度闭环，目标 `m2006_control_debug.speed_setpoint_rpm`（输出轴 rpm）。
-- `M2006_CTRL_MODE_POSITION`：位置闭环，目标 `m2006_control_debug.pos_setpoint_deg`（输出轴度），位置环输出限速 `pos_max_speed_rpm`。
+三模式（`m2006_motor.mode`）：
+- `M2006_MOTOR_MODE_OPEN_LOOP`：电流开环，直通 `m2006_motor.current_setpoint`（Watch 手动设定）。
+- `M2006_MOTOR_MODE_SPEED`：速度闭环，目标 `m2006_motor.speed_setpoint_rpm`（输出轴 rpm）。
+- `M2006_MOTOR_MODE_POSITION`：位置闭环，目标 `m2006_motor.pos_setpoint_deg`（输出轴度），位置环输出限速 `pos_max_speed_rpm`。
 
-位置反馈：多圈累计角度由 driver 层维护（`m2006_debug.angle_total_deg`，跨越 8191↔0 回绕连续），control 层直接复用、不再自行累计；输出轴角度 = 累计 LSB × 360/(36×8191)°。
+位置反馈：多圈累计角度在电机实例内维护（`m2006_motor.angle_total_deg`，跨越 8191↔0 回绕连续）；输出轴角度 = 累计 LSB × 360/(36×8191)°。
 
-调试面板 `m2006_control_debug`（Keil Watch 一键添加）与通信面板 `m2006_debug` 分离：
-- 可写：mode / pos_setpoint_deg / speed_setpoint_rpm / pos_pid_kp / pos_deadband_deg / pos_max_speed_rpm / spd_pid_kp / spd_pid_ki / spd_setpoint_rate。
-- 只读：pos_feedback_deg（= driver 的 angle_total_deg）/ speed_feedback_rpm（= driver 的 speed_out_rpm）/ speed_cmd_rpm / current_cmd_raw / pos_in_deadband。
-- 电流限幅单一来源：`m2006_debug.current_limit`（control 层不复制，速度环输出限幅直接读它）。
-- 使能与转速限幅仍在 driver（安全门属驱动层）。
+调试面板：单一实例 `m2006_motor`（配置区 + 观测区，见"调试功能"小节），电流限幅、使能、超时/超速安全门均在本实例内，单一来源。
 
 调参顺序：先 SPEED 调速度环（kp 从小到大再加 ki），再 POSITION 调位置环（纯 P 起步、kp 从小增大、加死区防抖）。
 
@@ -195,6 +189,20 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 
 **测试**：`tests\pid_test.c` 主机端单元测试，gcc 编译运行，58 项断言全部通过，覆盖 P/PI/PD 基本控制、输出限幅、不限幅（双零）、积分限幅、设定值斜坡、死区、死区滞回、dt=0 报错、reset 清状态、条件积分大误差停积分、微分滤波、增量式 P/PI/限幅/reset/dt 报错。
 
+### M2006 复用库（Lib\m2006_lib）
+
+> 2026 年 9 月 6 日起，M2006 全部逻辑从本工程 App 抽为独立复用库 `Lib\m2006_lib`，纯 C 零 HAL（不依赖 HAL/RTOS），目录结构 include/src/tests 与 pid_lib 同构。**当前为普通目录（非 git submodule），后续独立为 git 仓库并以 submodule 接入由用户决定时机**——届时按 pid_lib 工作流执行（独立仓库 + 推送远程 + 本工程切 gitlink）。
+
+**设计动机**：后续工程可能一路 CAN 挂多个 M2006（C610 电调 ID 1~8）并在不同 CAN 上使用各自的速度环/位置环。库把"协议 → 电机实例 → 总线"三层拆开，电机与总线均可多实例化：
+
+- `m2006_protocol`（协议层）：C610 编解码纯函数。控制帧 0x200（ID 1~4）/0x1FF（ID 5~8）编码（组内偏移 (ID-1)%4×2）、反馈帧 0x200+ID（1~8）解析、角度回绕展开、物理量换算常量（`M2006_PROTOCOL_MOTOR_ID_MAX=8`、`CONTROL_ID_LOW/HIGH`、`FEEDBACK_ID_BASE`、角度刻度、转矩常数）。
+- `m2006_motor`（电机实例）：一个透明结构体同时承载配置区（模式/目标/限幅/PID 参数）与观测区（换算值/反馈状态）；合并原 driver 安全门（电流钳位、20ms 超时、超速、断使能）与原 control 三模式级联闭环；`m2006_motor_update/feed_feedback` 带 `tick_ms`（时钟由调用者传入，零 RTOS 依赖，超时判定可主机端测试）；反馈原始字段标 volatile（中断写、任务读）；电流限幅单一来源（实例内 `current_limit`）。
+- `m2006_bus`（总线实例）：`motor_slots[8]` 按 esc_id-1 索引注册电机；`m2006_bus_pack_tx_frames` 按实际挂载聚合 0x200/0x1FF 控制帧（返回帧数 0~2，frame_id/frame_data 同索引）；`m2006_bus_handle_rx_frame` 按 can_id-0x200 路由反馈到对应电机（越界丢弃）。
+
+**多电机/多 CAN 复用方式**：每个总线实例对应一路 CAN（如 FDCAN2 → m2006_hal_bus，FDCAN3 → 另一个 m2006_bus）；每路总线上 `attach_motor` 挂 1~8 个电机实例，各电机独立配置 PID 与安全参数。HAL 收发（滤波、中断回调、发送）留在工程侧（`m2006_hal`），回调把 can_id 与数据喂给对应总线实例的 `m2006_bus_handle_rx_frame`。
+
+**测试**：`Lib\m2006_lib\tests\` 三个主机端测试（gcc 编译，不依赖硬件）：protocol 15 用例、motor 37 断言、bus 48 断言，全部通过。
+
 ## 四、验证状态
 
 已完成的验证包括：
@@ -205,9 +213,9 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 - 板上原有点亮功能保持正常。
 - VOFA 使用 UART8 接收 JustFloat 数据已经完成实测。
 - VOFA 无数据问题已经定位为接线松动，不是当前代码、DMA 配置或 JustFloat 帧格式问题。
-- 主机端 m2006_protocol_test 输出 `m2006_protocol_test: PASS`。
-- 命名检查器输出 `C naming check: PASS`，其单元测试（含 m2006 模块）全部通过。
-- Keil 工程构建结果为 `0 Error(s), 0 Warning(s)`。
+- 库主机端测试全部通过：m2006_protocol_test PASS（15 用例）、m2006_motor_test PASS（37 断言）、m2006_bus_test PASS（48 断言）。
+- 命名检查器输出 `C naming check: PASS`，其单元测试 19/19 全部通过。
+- Keil 工程完整重建（-r）结果为 `0 Error(s), 0 Warning(s)`，axf/hex 正常生成。
 - M2006 电机调试功能尚未进行硬件实测；上板验证时应先确认 FDCAN2 对应板卡 CAN2 接口接线与终端电阻，再按 Keil 调试流程操作。
 
 硬件复测时应确认：VOFA 串口选择 UART8 TX 对应的物理线路，波特率为 1,000,000，协议选择 JustFloat，并且串口地线与板子共地。正常情况下，一个通道的数值应持续递增，约每 100 毫秒产生一次新采样；复位后数值应重新从接近零的位置开始。
@@ -234,11 +242,17 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 - `App\Src\driver\vofa_justfloat.c`。
 - `tests\vofa_justfloat_test.c`。
 - `MDK-ARM\pid_lab_h723_m2006.uvprojx`。
-- `App\Src\driver\m2006_driver.c`。
-- `App\Inc\driver\m2006_driver.h`。
-- `App\Src\driver\m2006_protocol.c`。
-- `App\Inc\driver\m2006_protocol.h`。
-- `tests\m2006_protocol_test.c`。
+- `App\Src\driver\m2006_hal.c`。
+- `App\Inc\driver\m2006_hal.h`。
+- `Lib\m2006_lib\include\m2006_protocol.h`。
+- `Lib\m2006_lib\src\m2006_protocol.c`。
+- `Lib\m2006_lib\include\m2006_motor.h`。
+- `Lib\m2006_lib\src\m2006_motor.c`。
+- `Lib\m2006_lib\include\m2006_bus.h`。
+- `Lib\m2006_lib\src\m2006_bus.c`。
+- `Lib\m2006_lib\tests\m2006_protocol_test.c`。
+- `Lib\m2006_lib\tests\m2006_motor_test.c`。
+- `Lib\m2006_lib\tests\m2006_bus_test.c`。
 - `App\Src\task\m2006_control_task.c`。
 - `App\Inc\task\m2006_control_task.h`。
 - `App\Src\task\vofa_timestamp_task.c`。
@@ -250,6 +264,7 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 ### submodule 规则
 
 - `Lib\pid_lib` 是 git submodule，引用独立 PID 库仓库；子模块内容由独立仓库管理，不在本工程内直接修改。
+- `Lib\m2006_lib` 当前为普通目录（暂不建独立仓库、不接 submodule）；后续独立化并 submodule 接入后，本规则同样适用。
 - 本仓库 config 保留 `protocol.file.allow=always`（早期本地路径 clone 的遗留配置，远程拉取不受影响，可保留）。
 - submodule URL 已切换为远程地址 `https://github.com/GaGiaa/pid_lib.git`（commit `9ebdf96` 已推送）；克隆本工程需使用 `git clone --recursive` 以带出子模块。
 
@@ -289,6 +304,13 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 10. 完成任务后更新本文件的开发进度、验证状态和已知限制；不要创建 `docs\superpowers` 文件。
 
 ## 九、持续更新记录
+
+### 2026 年 9 月 6 日
+
+- 将 M2006 全部逻辑抽为复用库 `Lib\m2006_lib`（include/src/tests 与 pid_lib 同构，纯 C 零 HAL）：m2006_protocol（协议层，ID 上限 4→8，控制帧 0x200/0x1FF）、m2006_motor（电机实例：透明结构体，合并原 driver 安全门与原 control 级联闭环，tick 由调用者传入，中断共享字段 volatile）、m2006_bus（总线实例：8 槽位注册、两遍式聚合打包 0x200/0x1FF、反馈分发）。
+- 本工程迁移：新增 `App\Inc\driver\m2006_hal.h/.c`（FDCAN2 滤波/中断取帧分发/发送，持有 m2006_hal_bus）；重写 `App\Src\task\m2006_control_task.c`（实例化 m2006_motor + 编排"闭环→打包→发送"，freertos.c 任务创建接口不变）；删除 App 下 m2006_protocol/driver/control 旧文件与 tests 两个旧 m2006 测试；uvprojx include path 加 `../Lib/m2006_lib/include`、源文件替换为库三源 + m2006_hal.c；命名检查器与单测 fixture 同步更新（m2006_lib 文件纳入检查）。
+- 库主机端测试：protocol 15 用例、motor 37 断言、bus 48 断言全部 PASS（bus 打包修复两遍式帧序问题与 esc7 偏移断言）；命名检查 PASS、命名单测 19/19、Keil 完整重建 0 Error 0 Warning。
+- 迁移决策（用户明确）：库获得完整重构代码、本工程 App 旧代码删除并改为调用库、**先不建独立 git 仓库、不接 submodule**；`Lib\m2006_lib` 后续独立为 git 仓库并以 submodule 接入由用户决定时机。
 
 ### 2026 年 9 月 5 日
 

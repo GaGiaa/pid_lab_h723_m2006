@@ -46,7 +46,8 @@ uint32_t m2006_protocol_encode_control(
     control_data[byte_index] = 0U;
   }
 
-  byte_offset = (uint8_t)((motor_id - M2006_PROTOCOL_MOTOR_ID_MIN) * 2U);
+  /* ID 1~4 占帧内偏移 0/2/4/6，ID 5~8 同样占偏移 0/2/4/6（0x1FF 帧） */
+  byte_offset = (uint8_t)(((uint32_t)(motor_id - M2006_PROTOCOL_MOTOR_ID_MIN) % 4U) * 2U);
   control_data[byte_offset] = (uint8_t)((uint16_t)current_raw >> 8U);
   control_data[byte_offset + 1U] = (uint8_t)(current_raw & 0xFFU);
 

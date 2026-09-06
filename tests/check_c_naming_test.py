@@ -105,69 +105,164 @@ uint32_t m2006_protocol_parse_feedback(
 """
 
 
-M2006_DRIVER_HEADER_SOURCE = """\
-#ifndef M2006_DRIVER_H
-#define M2006_DRIVER_H
+M2006_MOTOR_HEADER_SOURCE = """\
+#ifndef M2006_MOTOR_H
+#define M2006_MOTOR_H
 
 #include <stdint.h>
 
-typedef struct m2006_debug
+#include "m2006_protocol.h"
+
+typedef enum
 {
-  uint8_t is_enabled;
-  int16_t current_setpoint;
-  int16_t current_limit;
-  int16_t speed_limit_rpm;
-  uint16_t angle_raw;
-  int16_t speed_rpm;
-  int16_t torque_raw;
-  float angle_raw_deg;
-  float angle_total_deg;
-  float speed_out_rpm;
-  float torque_out_nm;
+  M2006_MOTOR_MODE_OPEN_LOOP = 0,
+  M2006_MOTOR_MODE_SPEED,
+  M2006_MOTOR_MODE_POSITION,
+} m2006_motor_mode_t;
+
+typedef struct m2006_motor
+{
+  m2006_motor_mode_t mode;
   int16_t output_current;
-  uint32_t rx_msg_count;
-  uint8_t is_rx_timeout;
-  uint32_t tx_fail_count;
-} m2006_debug_t;
+} m2006_motor_t;
 
-extern volatile m2006_debug_t m2006_debug;
+void m2006_motor_init(m2006_motor_t *motor, uint8_t esc_id);
+void m2006_motor_update(m2006_motor_t *motor, uint32_t tick_ms);
 
-void m2006_driver_init(void);
-void m2006_driver_update(void);
-
-#endif /* M2006_DRIVER_H */
+#endif /* M2006_MOTOR_H */
 """
 
 
-M2006_DRIVER_SOURCE = """\
-#include \"m2006_driver.h\"
+M2006_MOTOR_SOURCE = """\
+#include "m2006_motor.h"
 
-volatile m2006_debug_t m2006_debug = {
-  .is_enabled = 0U,
-  .current_setpoint = 0,
-  .current_limit = 3000,
-  .speed_limit_rpm = 500,
-  .angle_raw = 0U,
-  .speed_rpm = 0,
-  .torque_raw = 0,
-  .angle_raw_deg = 0.0f,
-  .angle_total_deg = 0.0f,
-  .speed_out_rpm = 0.0f,
-  .torque_out_nm = 0.0f,
-  .output_current = 0,
-  .rx_msg_count = 0U,
-  .is_rx_timeout = 1U,
-  .tx_fail_count = 0U,
-};
-
-void m2006_driver_init(void)
+void m2006_motor_init(m2006_motor_t *motor, uint8_t esc_id)
 {
-  m2006_debug.is_enabled = 0U;
+  (void)esc_id;
+  motor->mode = M2006_MOTOR_MODE_OPEN_LOOP;
+  motor->output_current = 0;
 }
 
-void m2006_driver_update(void)
+void m2006_motor_update(m2006_motor_t *motor, uint32_t tick_ms)
 {
-  m2006_debug.current_setpoint = 1;
+  (void)tick_ms;
+  motor->output_current = 0;
+}
+"""
+
+
+M2006_BUS_HEADER_SOURCE = """\
+#ifndef M2006_BUS_H
+#define M2006_BUS_H
+
+#include <stdint.h>
+
+#include "m2006_motor.h"
+#include "m2006_protocol.h"
+
+typedef struct m2006_bus
+{
+  m2006_motor_t *motor_slots[8];
+} m2006_bus_t;
+
+void m2006_bus_init(m2006_bus_t *bus);
+uint32_t m2006_bus_attach_motor(m2006_bus_t *bus,
+                                m2006_motor_t *motor,
+                                uint8_t esc_id);
+uint32_t m2006_bus_pack_tx_frames(m2006_bus_t *bus,
+                                  uint32_t *frame_id,
+                                  uint8_t (*frame_data)[8]);
+void m2006_bus_handle_rx_frame(m2006_bus_t *bus,
+                               uint32_t can_id,
+                               const uint8_t *frame_data,
+                               uint32_t tick_ms);
+
+#endif /* M2006_BUS_H */
+"""
+
+
+M2006_BUS_SOURCE = """\
+#include "m2006_bus.h"
+
+void m2006_bus_init(m2006_bus_t *bus)
+{
+  uint32_t slot_index;
+
+  for (slot_index = 0U; slot_index < 8U; ++slot_index)
+  {
+    bus->motor_slots[slot_index] = 0;
+  }
+}
+
+uint32_t m2006_bus_attach_motor(m2006_bus_t *bus,
+                                m2006_motor_t *motor,
+                                uint8_t esc_id)
+{
+  (void)bus;
+  (void)motor;
+  (void)esc_id;
+  return 1U;
+}
+
+uint32_t m2006_bus_pack_tx_frames(m2006_bus_t *bus,
+                                  uint32_t *frame_id,
+                                  uint8_t (*frame_data)[8])
+{
+  (void)bus;
+  (void)frame_id;
+  (void)frame_data;
+  return 0U;
+}
+
+void m2006_bus_handle_rx_frame(m2006_bus_t *bus,
+                               uint32_t can_id,
+                               const uint8_t *frame_data,
+                               uint32_t tick_ms)
+{
+  (void)bus;
+  (void)can_id;
+  (void)frame_data;
+  (void)tick_ms;
+}
+"""
+
+
+M2006_HAL_HEADER_SOURCE = """\
+#ifndef M2006_HAL_H
+#define M2006_HAL_H
+
+#include <stdint.h>
+
+#include "m2006_bus.h"
+
+extern m2006_bus_t m2006_hal_bus;
+extern uint32_t m2006_hal_tx_fail_count;
+
+void m2006_hal_init(void);
+uint32_t m2006_hal_tx_frame(uint32_t frame_id,
+                            const uint8_t *frame_data);
+
+#endif /* M2006_HAL_H */
+"""
+
+
+M2006_HAL_SOURCE = """\
+#include "m2006_hal.h"
+
+m2006_bus_t m2006_hal_bus;
+uint32_t m2006_hal_tx_fail_count = 0U;
+
+void m2006_hal_init(void)
+{
+  m2006_hal_tx_fail_count = 0U;
+}
+
+uint32_t m2006_hal_tx_frame(uint32_t frame_id,
+                            const uint8_t *frame_data)
+{
+  (void)frame_id;
+  (void)frame_data;
+  return 1U;
 }
 
 void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t rx_fifo0_it_flags)
@@ -178,7 +273,7 @@ void HAL_FDCAN_RxFifo0Callback(void *hfdcan, uint32_t rx_fifo0_it_flags)
 """
 
 
-M2006_TEST_SOURCE = """\
+M2006_PROTOCOL_TEST_SOURCE = """\
 #include <stdint.h>
 
 int main(void)
@@ -188,59 +283,25 @@ int main(void)
 """
 
 
-M2006_CONTROL_HEADER_SOURCE = """\
-#ifndef M2006_CONTROL_H
-#define M2006_CONTROL_H
-
+M2006_MOTOR_TEST_SOURCE = """\
 #include <stdint.h>
-
-typedef enum
-{
-  M2006_CTRL_MODE_OPEN_LOOP = 0,
-  M2006_CTRL_MODE_SPEED,
-  M2006_CTRL_MODE_POSITION,
-} m2006_ctrl_mode_t;
-
-typedef struct m2006_control_debug
-{
-  m2006_ctrl_mode_t mode;
-  float pos_setpoint_deg;
-} m2006_control_debug_t;
-
-extern volatile m2006_control_debug_t m2006_control_debug;
-
-void m2006_control_init(void);
-void m2006_control_update(void);
-
-#endif /* M2006_CONTROL_H */
-"""
-
-M2006_CONTROL_SOURCE = """\
-#include "m2006_control.h"
-
-volatile m2006_control_debug_t m2006_control_debug = {
-  .mode = M2006_CTRL_MODE_OPEN_LOOP,
-};
-
-void m2006_control_init(void)
-{
-  m2006_control_debug.pos_setpoint_deg = 0.0f;
-}
-
-void m2006_control_update(void)
-{
-  m2006_control_debug.mode = M2006_CTRL_MODE_OPEN_LOOP;
-}
-"""
-
-M2006_CONTROL_TEST_SOURCE = """\
-#include "m2006_control.h"
 
 int main(void)
 {
   return 0;
 }
 """
+
+
+M2006_BUS_TEST_SOURCE = """\
+#include <stdint.h>
+
+int main(void)
+{
+  return 0;
+}
+"""
+
 
 M2006_CONTROL_TASK_HEADER_SOURCE = """\
 #ifndef M2006_CONTROL_TASK_H
@@ -502,12 +563,15 @@ class NamingCheckerTestCase(unittest.TestCase):
       freertos_source: str = FREERTOS_SOURCE,
       m2006_protocol_header_source: str = M2006_PROTOCOL_HEADER_SOURCE,
       m2006_protocol_source: str = M2006_PROTOCOL_SOURCE,
-      m2006_driver_header_source: str = M2006_DRIVER_HEADER_SOURCE,
-      m2006_driver_source: str = M2006_DRIVER_SOURCE,
-      m2006_control_header_source: str = M2006_CONTROL_HEADER_SOURCE,
-      m2006_control_source: str = M2006_CONTROL_SOURCE,
-      m2006_control_test_source: str = M2006_CONTROL_TEST_SOURCE,
-      m2006_test_source: str = M2006_TEST_SOURCE,
+      m2006_motor_header_source: str = M2006_MOTOR_HEADER_SOURCE,
+      m2006_motor_source: str = M2006_MOTOR_SOURCE,
+      m2006_bus_header_source: str = M2006_BUS_HEADER_SOURCE,
+      m2006_bus_source: str = M2006_BUS_SOURCE,
+      m2006_hal_header_source: str = M2006_HAL_HEADER_SOURCE,
+      m2006_hal_source: str = M2006_HAL_SOURCE,
+      m2006_protocol_test_source: str = M2006_PROTOCOL_TEST_SOURCE,
+      m2006_motor_test_source: str = M2006_MOTOR_TEST_SOURCE,
+      m2006_bus_test_source: str = M2006_BUS_TEST_SOURCE,
       m2006_control_task_header_source: str = M2006_CONTROL_TASK_HEADER_SOURCE,
       m2006_control_task_source: str = M2006_CONTROL_TASK_SOURCE,
       vofa_timestamp_task_header_source: str = VOFA_TIMESTAMP_TASK_HEADER_SOURCE,
@@ -521,18 +585,21 @@ class NamingCheckerTestCase(unittest.TestCase):
         "App/Src/driver/vofa_justfloat.c": vofa_source,
         "Core/Src/freertos.c": freertos_source,
         "tests/vofa_justfloat_test.c": test_source,
-        "App/Inc/driver/m2006_protocol.h": m2006_protocol_header_source,
-        "App/Src/driver/m2006_protocol.c": m2006_protocol_source,
-        "App/Inc/driver/m2006_driver.h": m2006_driver_header_source,
-        "App/Src/driver/m2006_driver.c": m2006_driver_source,
-        "App/Inc/control/m2006_control.h": m2006_control_header_source,
-        "App/Src/control/m2006_control.c": m2006_control_source,
-        "tests/m2006_control_test.c": m2006_control_test_source,
-        "tests/m2006_protocol_test.c": m2006_test_source,
         "App/Inc/task/m2006_control_task.h": m2006_control_task_header_source,
         "App/Src/task/m2006_control_task.c": m2006_control_task_source,
         "App/Inc/task/vofa_timestamp_task.h": vofa_timestamp_task_header_source,
         "App/Src/task/vofa_timestamp_task.c": vofa_timestamp_task_source,
+        "App/Inc/driver/m2006_hal.h": m2006_hal_header_source,
+        "App/Src/driver/m2006_hal.c": m2006_hal_source,
+        "Lib/m2006_lib/include/m2006_protocol.h": m2006_protocol_header_source,
+        "Lib/m2006_lib/src/m2006_protocol.c": m2006_protocol_source,
+        "Lib/m2006_lib/include/m2006_motor.h": m2006_motor_header_source,
+        "Lib/m2006_lib/src/m2006_motor.c": m2006_motor_source,
+        "Lib/m2006_lib/include/m2006_bus.h": m2006_bus_header_source,
+        "Lib/m2006_lib/src/m2006_bus.c": m2006_bus_source,
+        "Lib/m2006_lib/tests/m2006_protocol_test.c": m2006_protocol_test_source,
+        "Lib/m2006_lib/tests/m2006_motor_test.c": m2006_motor_test_source,
+        "Lib/m2006_lib/tests/m2006_bus_test.c": m2006_bus_test_source,
         "Lib/pid_lib/include/pid.h": pid_header_source,
         "Lib/pid_lib/src/pid.c": pid_source,
         "tests/pid_test.c": pid_test_source,
@@ -731,29 +798,29 @@ void startDefaultTask(void *argument)
     self.assertEqual(self.scan_project(), [])
 
   def test_reports_m2006_camel_case_variable(self) -> None:
-    m2006_driver_source = M2006_DRIVER_SOURCE.replace(
-        "m2006_debug.current_setpoint = 1;",
-        "m2006_debug.current_setpoint = 1;\n"
+    m2006_hal_source = M2006_HAL_SOURCE.replace(
+        "m2006_hal_tx_fail_count = 0U;",
+        "m2006_hal_tx_fail_count = 0U;\n"
         "  uint32_t camelCase = 0U;\n"
         "  (void)camelCase;",
     )
 
-    violations = self.scan_project(m2006_driver_source=m2006_driver_source)
+    violations = self.scan_project(m2006_hal_source=m2006_hal_source)
 
     self.assert_has_violation(violations, "identifier_style", "camelCase")
 
   def test_reports_m2006_public_function_without_prefix(self) -> None:
-    m2006_driver_source = M2006_DRIVER_SOURCE.replace(
-        "void m2006_driver_update(void)",
-        "void driver_update(void)",
+    m2006_hal_source = M2006_HAL_SOURCE.replace(
+        "uint32_t m2006_hal_tx_frame(uint32_t frame_id,",
+        "uint32_t tx_frame(uint32_t frame_id,",
     )
 
-    violations = self.scan_project(m2006_driver_source=m2006_driver_source)
+    violations = self.scan_project(m2006_hal_source=m2006_hal_source)
 
     self.assert_has_violation(
         violations,
         "public_function_module_prefix",
-        "driver_update",
+        "tx_frame",
     )
 
   def test_reports_m2006_macro_without_module_prefix(self) -> None:
