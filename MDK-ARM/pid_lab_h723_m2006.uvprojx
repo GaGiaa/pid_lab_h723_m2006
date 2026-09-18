@@ -440,9 +440,9 @@
               <FilePath>../App/Src/task/m2006_control_task.c</FilePath>
             </File>
             <File>
-              <FileName>vofa_timestamp_task.c</FileName>
+              <FileName>m2006_debug_task.c</FileName>
               <FileType>1</FileType>
-              <FilePath>../App/Src/task/vofa_timestamp_task.c</FilePath>
+              <FilePath>../App/Src/task/m2006_debug_task.c</FilePath>
             </File>
             <File>
               <FileName>pid.c</FileName>

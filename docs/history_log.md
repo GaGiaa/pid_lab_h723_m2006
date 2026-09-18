@@ -4,9 +4,21 @@
 
 ## 最新记录索引
 
+- 2026-09-18：VOFA 波形调参（PID 精调）：多通道 JustFloat 编码 + `m2006_debug_task`（1kHz 8 通道），原 `vofa_timestamp_task` 并入（时间戳降级为 ch0）。
 - 2026-09-06：m2006_lib 独立为 git 仓库（GitHub `GaGiaa/m2006_lib`，public，develop，首提交 `6e203b6`）并以 submodule 接入本工程（gitlink `5df2024`）；交接文档分层重构（本文件与 `docs/m2006_hardware.md` 拆分）。
 - 2026-09-06：M2006 全部逻辑抽为复用库 `Lib\m2006_lib` 并迁移本工程 App 调用（`bd995ca`）。
 - 2026-09-05：PID 库独立为 git 仓库（`GaGiaa/pid_lib`），本工程 `Lib\pid_lib` 切 submodule 并切换远程 URL（`9ebdf96`）。
+
+## 2026 年 9 月 18 日
+
+- 背景：Keil Watch 500ms 轮询刷新不适合 PID 精调（看不出超调/振荡/稳态误差趋势）。方案（用户确认）：拆通道——Watch 只改参数（低频足够），VOFA 看 1kHz 实时波形；发送频率 1kHz，通道集定稿 8 通道并集 + VOFA 勾选聚焦（调速度环勾 ch1/2/3/7，调位置环勾 ch4/5/6/2/3）。
+- `vofa_justfloat` 多通道化：新增 `vofa_justfloat_encode_multi(values, channel_count, buffer, buffer_size)`（上限 `VOFA_JUSTFLOAT_MAX_CHANNELS` 8，帧 = N×4 字节 float32 小端 + 帧尾；NULL/通道数非法/缓冲区过小返回 0）；原单通道 `vofa_justfloat_encode_float` 兼容保留；新增宏 `VOFA_JUSTFLOAT_FRAME_SIZE_FOR_CHANNELS(n)`。
+- 新增 `m2006_debug_task`（`App\Inc\task` + `App\Src\task`，osPriorityNormal，栈 1024B，1ms 周期）：读取 `m2006_motor` 8 个字段（tick / speed_setpoint_rpm / speed_feedback_rpm / output_current / pos_feedback_deg / pos_setpoint_deg / speed_cmd_rpm / spd_pid.i_term），编码为 JustFloat 多通道帧经 UART8 DMA 发送。
+- 删除 `vofa_timestamp_task`：时间戳功能并入调试帧 ch0（健康检查等价保留）；UART8 单一发送者，无 DMA 竞争（原交接文档"新增发送者必须串行化"的隐患由此消除）。
+- 工程同步：`freertos.c` USER CODE 区任务创建替换；`uvprojx` 源文件列表替换；命名检查器 `TARGET_RELATIVE_PATHS` 与命名单测 fixture 同步（vofa_timestamp_task → m2006_debug_task）。
+- 验证：vofa_justfloat 单测 PASS（单通道 5 用例 + 多通道 3 组用例）、命名检查 PASS、命名单测 19/19、Keil 完整重建 0 Error 0 Warning。
+- 验证登记机制（方案 1+2）：交接文档 §二 新增"验证状态登记表"（功能项/状态/日期/代码基线/备注，粒度到功能子项，权威来源），并约定一句话同步话术（`验证：<功能>，<通过/失败>，<日期>`），AI 收到即更新登记表并回执。登记：M2006 开环/速度环/位置环用户手动实测通过（PID 参数待精调），安全门用户不记得是否测过按未验证计，VOFA 多通道波形待上板。
+- 已知限制：M2006 开环/速度环/位置环已实测通过；VOFA 多通道波形已实测通过（2026-09-18）；安全门（超时/钳位/超速）尚未验证（验证步骤见 `docs/m2006_hardware.md` §四）。
 
 ## 2026 年 9 月 6 日
 

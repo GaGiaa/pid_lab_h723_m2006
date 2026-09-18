@@ -337,30 +337,30 @@ void m2006_control_task_entry(void *argument)
 """
 
 
-VOFA_TIMESTAMP_TASK_HEADER_SOURCE = """\
-#ifndef VOFA_TIMESTAMP_TASK_H
-#define VOFA_TIMESTAMP_TASK_H
+M2006_DEBUG_TASK_HEADER_SOURCE = """\
+#ifndef M2006_DEBUG_TASK_H
+#define M2006_DEBUG_TASK_H
 
 #include "cmsis_os.h"
 
-extern osThreadId_t vofa_timestamp_task_handle;
-extern const osThreadAttr_t vofa_timestamp_task_attributes;
+extern osThreadId_t m2006_debug_task_handle;
+extern const osThreadAttr_t m2006_debug_task_attributes;
 
-void vofa_timestamp_task_entry(void *argument);
+void m2006_debug_task_entry(void *argument);
 
-#endif /* VOFA_TIMESTAMP_TASK_H */
+#endif /* M2006_DEBUG_TASK_H */
 """
 
 
-VOFA_TIMESTAMP_TASK_SOURCE = """\
-#include "vofa_timestamp_task.h"
+M2006_DEBUG_TASK_SOURCE = """\
+#include "m2006_debug_task.h"
 
-osThreadId_t vofa_timestamp_task_handle;
-const osThreadAttr_t vofa_timestamp_task_attributes = {
-  .name = "vofa_timestamp",
+osThreadId_t m2006_debug_task_handle;
+const osThreadAttr_t m2006_debug_task_attributes = {
+  .name = "m2006_debug",
 };
 
-void vofa_timestamp_task_entry(void *argument)
+void m2006_debug_task_entry(void *argument)
 {
   (void)argument;
 
@@ -373,13 +373,13 @@ void vofa_timestamp_task_entry(void *argument)
 
 FREERTOS_SOURCE = """\
 /* USER CODE BEGIN PD */
-#define VOFA_TIMESTAMP_PERIOD_MS (100U)
+#define M2006_DEBUG_TASK_PERIOD_MS (1U)
 /* USER CODE END PD */
 
 /* USER CODE BEGIN Variables */
-osThreadId_t vofa_timestamp_task_handle;
-const osThreadAttr_t vofa_timestamp_task_attributes = {
-  .name = \"vofa_timestamp\",
+osThreadId_t m2006_debug_task_handle;
+const osThreadAttr_t m2006_debug_task_attributes = {
+  .name = \"m2006_debug\",
 };
 osThreadId_t m2006_control_task_handle;
 const osThreadAttr_t m2006_control_task_attributes = {
@@ -388,7 +388,7 @@ const osThreadAttr_t m2006_control_task_attributes = {
 /* USER CODE END Variables */
 
 /* USER CODE BEGIN FunctionPrototypes */
-static void vofa_timestamp_task_entry(void *argument);
+static void m2006_debug_task_entry(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 /* USER CODE BEGIN 4 */
@@ -400,14 +400,14 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN RTOS_THREADS */
-vofa_timestamp_task_handle = osThreadNew(
-    vofa_timestamp_task_entry,
+m2006_debug_task_handle = osThreadNew(
+    m2006_debug_task_entry,
     NULL,
-    &vofa_timestamp_task_attributes);
+    &m2006_debug_task_attributes);
 /* USER CODE END RTOS_THREADS */
 
 /* USER CODE BEGIN Application */
-static void vofa_timestamp_task_entry(void *argument)
+static void m2006_debug_task_entry(void *argument)
 {
   uint8_t encoded_frame[VOFA_JUSTFLOAT_FRAME_SIZE_BYTES];
 
@@ -574,8 +574,8 @@ class NamingCheckerTestCase(unittest.TestCase):
       m2006_bus_test_source: str = M2006_BUS_TEST_SOURCE,
       m2006_control_task_header_source: str = M2006_CONTROL_TASK_HEADER_SOURCE,
       m2006_control_task_source: str = M2006_CONTROL_TASK_SOURCE,
-      vofa_timestamp_task_header_source: str = VOFA_TIMESTAMP_TASK_HEADER_SOURCE,
-      vofa_timestamp_task_source: str = VOFA_TIMESTAMP_TASK_SOURCE,
+      m2006_debug_task_header_source: str = M2006_DEBUG_TASK_HEADER_SOURCE,
+      m2006_debug_task_source: str = M2006_DEBUG_TASK_SOURCE,
       pid_header_source: str = PID_HEADER_SOURCE,
       pid_source: str = PID_SOURCE,
       pid_test_source: str = PID_TEST_SOURCE,
@@ -587,8 +587,8 @@ class NamingCheckerTestCase(unittest.TestCase):
         "tests/vofa_justfloat_test.c": test_source,
         "App/Inc/task/m2006_control_task.h": m2006_control_task_header_source,
         "App/Src/task/m2006_control_task.c": m2006_control_task_source,
-        "App/Inc/task/vofa_timestamp_task.h": vofa_timestamp_task_header_source,
-        "App/Src/task/vofa_timestamp_task.c": vofa_timestamp_task_source,
+        "App/Inc/task/m2006_debug_task.h": m2006_debug_task_header_source,
+        "App/Src/task/m2006_debug_task.c": m2006_debug_task_source,
         "App/Inc/driver/m2006_hal.h": m2006_hal_header_source,
         "App/Src/driver/m2006_hal.c": m2006_hal_source,
         "Lib/m2006_lib/include/m2006_protocol.h": m2006_protocol_header_source,

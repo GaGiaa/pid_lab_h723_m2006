@@ -4,7 +4,7 @@ STM32H723ZGTx 嵌入式固件工程：M2006 无刷电机（C610 电调）控制�
 
 ## 目录
 
-- `App/`：本工程自有代码——`driver/`（m2006_hal FDCAN2 适配、vofa_justfloat）、`task/`（m2006_control_task、vofa_timestamp_task）、`control/`（预留骨架）
+- `App/`：本工程自有代码——`driver/`（m2006_hal FDCAN2 适配、vofa_justfloat）、`task/`（m2006_control_task、m2006_debug_task）、`control/`（预留骨架）
 - `Core/`：CubeMX 生成代码（外设、FreeRTOS 配置，`freertos.c` USER CODE 区仅留 osThreadNew 胶水）
 - `Lib/`：独立库 git submodule——`pid_lib`（PID 算法库）、`m2006_lib`（M2006 电机库，协议/电机/总线三层，纯 C 零 HAL）
 - `MDK-ARM/`：Keil 工程（`pid_lab_h723_m2006.uvprojx`）

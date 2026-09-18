@@ -36,10 +36,10 @@
 | 结构体、联合体和枚举标签 | `lower_snake_case` | `struct vofa_frame` |
 | `typedef` 类型别名 | `lower_snake_case_t` | `vofa_frame_t` |
 | 公开函数 | `模块_动作_对象` 的 `lower_snake_case` | `vofa_justfloat_encode_float` |
-| 文件内 `static` 函数 | 语义明确的 `lower_snake_case` | `vofa_timestamp_task_entry` |
+| 文件内 `static` 函数 | 语义明确的 `lower_snake_case` | `expect_bytes_equal` |
 | 变量、参数、结构字段和测试辅助函数 | `lower_snake_case` | `frame_buffer`、`byte_count` |
 | 布尔值 | `is_`、`has_`、`can_` 或 `should_` 开头 | `is_dma_ready` |
-| FreeRTOS 任务运行时名称 | 模块前缀加 `lower_snake_case` | `"vofa_timestamp"` |
+| FreeRTOS 任务运行时名称 | 模块前缀加 `lower_snake_case` | `"m2006_debug"` |
 
 公开函数、公开宏、枚举值和任务名称必须以所属模块的前缀开头。文件内变量与函数仍应使用能反映模块或职责的完整名称，避免 `data`、`temp`、`value1` 等无业务含义的名称。
 
@@ -67,4 +67,4 @@
 5. 人工复查新增标识符的模块归属、动作/对象语义、单位后缀、外部接口例外理由和 CubeMX `USER CODE` 边界。自动检查不能替代这一步。
 6. 运行与变更风险相匹配的主机测试和 Keil 构建；只有全部通过才可更新交接文档中的验证状态。
 
-当前检查器位于 `tests\check_c_naming.py`，其单元测试位于 `tests\check_c_naming_test.py`。它固定检查 `Core\Inc\vofa_justfloat.h`、`Core\Src\vofa_justfloat.c`、`Core\Src\freertos.c` 的 `USER CODE` 区域以及 `tests\vofa_justfloat_test.c`。以后扩大项目自有代码范围时，必须先为新规则写失败测试，再同步扩大检查器范围；不得让新文件绕过检查。
+当前检查器位于 `tests\check_c_naming.py`，其单元测试位于 `tests\check_c_naming_test.py`。它固定检查项目自有文件清单（`TARGET_RELATIVE_PATHS`，含 App 驱动/任务、vofa_justfloat、m2006_hal、两个库的头文件与源文件、主机端测试），其中 `Core\Src\freertos.c` 只检查 `USER CODE` 区域。以后扩大项目自有代码范围时，必须先为新规则写失败测试，再同步扩大检查器范围；不得让新文件绕过检查。

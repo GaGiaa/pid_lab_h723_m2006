@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "vofa_timestamp_task.h"
+#include "m2006_debug_task.h"
 #include "m2006_control_task.h"
 
 /* USER CODE END Includes */
@@ -109,9 +109,9 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadNew(startDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  vofa_timestamp_task_handle = osThreadNew(vofa_timestamp_task_entry,
-                                            NULL,
-                                            &vofa_timestamp_task_attributes);
+  m2006_debug_task_handle = osThreadNew(m2006_debug_task_entry,
+                                        NULL,
+                                        &m2006_debug_task_attributes);
   m2006_control_task_handle = osThreadNew(m2006_control_task_entry,
                                            NULL,
                                            &m2006_control_task_attributes);

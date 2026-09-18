@@ -28,6 +28,7 @@
 - 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current`（实际下发电流）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw`、`pos_in_deadband`。
 - 总线调试：Keil Watch 添加 `m2006_hal_bus` 查看总线实例（motor_slots 槽位挂载）；`m2006_hal_tx_fail_count` 查看发送失败计数。
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint`（如 500）开始缓慢增大。
+- VOFA 波形（PID 精调）：`m2006_debug` 任务 1kHz 发送 8 通道 JustFloat 帧（UART8 1Mbps，协议 JustFloat）。通道：ch0 tick / ch1 speed_setpoint_rpm / ch2 speed_feedback_rpm / ch3 output_current / ch4 pos_feedback_deg / ch5 pos_setpoint_deg / ch6 speed_cmd_rpm / ch7 spd_pid.i_term（Δi）。Watch 只当参数输入端（改 kp/ki/目标值，500ms 刷新足够）。调速度环勾选 ch1/2/3/7（设定 vs 反馈看超调/振荡，电流看饱和，Δi 看积分行为）；调位置环勾选 ch4/5/6/2/3（先确认 ch6 速度指令平滑，再确认 ch2 跟上 ch6 判内环，最后看 ch4 无超调判外环）。
 
 ## 五、安全保护（m2006_motor_update 内自动执行，参数可调）
 
@@ -66,3 +67,4 @@ PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rp
 - `Lib\m2006_lib`（git submodule）：`include\m2006_protocol.h` + `src\m2006_protocol.c`（协议编解码纯函数）、`include\m2006_motor.h` + `src\m2006_motor.c`（电机实例：透明结构体、三模式级联闭环、安全门、tick 由调用者传入、依赖 pid_lib）、`include\m2006_bus.h` + `src\m2006_bus.c`（总线实例：8 槽位注册、0x200/0x1FF 聚合打包、反馈分发）；`tests\` 三个主机端测试（protocol 15 用例、motor 37 断言、bus 48 断言，全部通过）。
 - `App\Inc\driver\m2006_hal.h`、`App\Src\driver\m2006_hal.c`：本工程 FDCAN2 适配层。
 - `App\Src\task\m2006_control_task.c`、`App\Inc\task\m2006_control_task.h`：M2006 1kHz 控制任务。
+- `App\Src\task\m2006_debug_task.c`、`App\Inc\task\m2006_debug_task.h`：M2006 波形调试任务（1kHz，8 通道 JustFloat → VOFA，替代原时间戳任务）。
