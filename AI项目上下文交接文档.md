@@ -71,7 +71,7 @@
 
 - 硬件：UART8（TX=PE1，RX=PE0），波特率 1Mbps，8N1，无流控；DMA1_Stream1 内存→外设普通模式。初始化在 `Core\Src\usart.c`。
 - 波形调试任务：`m2006_debug`（osPriorityNormal，栈 1024B），每 1ms（1kHz）读取 `m2006_motor` 观测区/配置区 8 个字段，编码为 JustFloat 多通道帧经 UART8 DMA 发送，供 VOFA 示波器实时观测速度环/位置环波形。ch0 为 RTOS tick（FreeRTOS 节拍 1000Hz，数值即启动后毫秒数），兼健康检查/丢帧检测。
-- 通道约定（VOFA 按 ch0..ch7 依次显示）：ch0 tick / ch1 speed_setpoint_rpm / ch2 speed_feedback_rpm / ch3 output_current / ch4 pos_feedback_deg / ch5 pos_setpoint_deg / ch6 speed_cmd_rpm / ch7 spd_pid.i_term（速度环积分增量 Δi）。调速度环勾选 ch1/2/3/7（+ch0），调位置环勾选 ch4/5/6/2/3（+ch0）。
+- 通道约定（VOFA 按 ch0..ch7 依次显示）：ch0 tick / ch1 speed_setpoint_rpm / ch2 speed_feedback_rpm / ch3 output_current_lsb / ch4 pos_feedback_deg / ch5 pos_setpoint_deg / ch6 speed_cmd_rpm / ch7 spd_pid.i_term（速度环积分增量 Δi）。调速度环勾选 ch1/2/3/7（+ch0），调位置环勾选 ch4/5/6/2/3（+ch0）。
 - JustFloat 帧：`App\Inc\driver\vofa_justfloat.h` + `App\Src\driver\vofa_justfloat.c`，接口 `vofa_justfloat_encode_float()`（单通道，兼容保留）与 `vofa_justfloat_encode_multi()`（多通道，上限 `VOFA_JUSTFLOAT_MAX_CHANNELS` = 8）；帧 = N×4 字节 float32 小端 + 帧尾 `00 00 80 7F`。不依赖 HAL/RTOS，主机端可测。
 - 发送者唯一：UART8 仅 `m2006_debug` 任务发送（原 `vofa_timestamp` 任务已并入本任务，时间戳即 ch0），无 DMA 并发竞争；若以后新增 UART8 发送者必须统一串行化或改共享发送队列。
 - 相关文件：`Core\Src\freertos.c`、`tests\vofa_justfloat_test.c`、`App\Src\task\m2006_debug_task.c` + `App\Inc\task\m2006_debug_task.h`。

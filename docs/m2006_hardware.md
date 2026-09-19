@@ -24,15 +24,15 @@
 ## 四、Keil 调试方法（Debug 界面 Watch 窗口）
 
 - 一键添加结构体实例 `m2006_motor`（本工程电机实例，m2006_control_task.c 定义），即可查看并修改全部配置与观测变量。
-- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint`（开环目标电流 ±10000）、`m2006_motor.current_limit`（电流钳位，默认 10000 = 10A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
-- 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current`（实际下发电流）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw`、`pos_in_deadband`。
+- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint_lsb`（开环目标电流，LSB，±10000 = ±10A，1000 LSB = 1A）、`m2006_motor.current_limit_lsb`（电流钳位，LSB，默认 10000 = 10A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
+- 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current_lsb`（实际下发电流，LSB，1000 LSB=1A）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw_lsb`、`pos_in_deadband`。
 - 总线调试：Keil Watch 添加 `m2006_hal_bus` 查看总线实例（motor_slots 槽位挂载）；`m2006_hal_tx_fail_count` 查看发送失败计数。
-- 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint`（如 500）开始缓慢增大。
-- VOFA 波形（PID 精调）：`m2006_debug` 任务 1kHz 发送 8 通道 JustFloat 帧（UART8 1Mbps，协议 JustFloat）。通道：ch0 tick / ch1 speed_setpoint_rpm / ch2 speed_feedback_rpm / ch3 output_current / ch4 pos_feedback_deg / ch5 pos_setpoint_deg / ch6 speed_cmd_rpm / ch7 spd_pid.i_term（Δi）。Watch 只当参数输入端（改 kp/ki/目标值，500ms 刷新足够）。调速度环勾选 ch1/2/3/7（设定 vs 反馈看超调/振荡，电流看饱和，Δi 看积分行为）；调位置环勾选 ch4/5/6/2/3（先确认 ch6 速度指令平滑，再确认 ch2 跟上 ch6 判内环，最后看 ch4 无超调判外环）。
+- 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint_lsb`（如 500 = 0.5A）开始缓慢增大。
+- VOFA 波形（PID 精调）：`m2006_debug` 任务 1kHz 发送 8 通道 JustFloat 帧（UART8 1Mbps，协议 JustFloat）。通道：ch0 tick / ch1 speed_setpoint_rpm / ch2 speed_feedback_rpm / ch3 output_current_lsb / ch4 pos_feedback_deg / ch5 pos_setpoint_deg / ch6 speed_cmd_rpm / ch7 spd_pid.i_term（Δi）。Watch 只当参数输入端（改 kp/ki/目标值，500ms 刷新足够）。调速度环勾选 ch1/2/3/7（设定 vs 反馈看超调/振荡，电流看饱和，Δi 看积分行为）；调位置环勾选 ch4/5/6/2/3（先确认 ch6 速度指令平滑，再确认 ch2 跟上 ch6 判内环，最后看 ch4 无超调判外环）。
 
 ## 五、安全保护（m2006_motor_update 内自动执行，参数可调）
 
-- 电流钳位：输出电流限制在 ±m2006_motor.current_limit（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
+- 电流钳位：输出电流限制在 ±m2006_motor.current_limit_lsb（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
 - 反馈超时：连续 20ms 未收到反馈（`m2006_motor.is_rx_timeout` 置 1）时输出强制置 0（1kHz 下正常每 1ms 一帧反馈）；tick 由调用者传入，超时判定在库内可测。
 - 超速保护：speed_limit_rpm > 0 时，输出轴转速绝对值超过它则输出置 0；speed_limit_rpm = 0 表示关闭超速保护（调试期默认关闭）。
 - 断使能：m2006_motor.is_enabled 为 0 时输出恒为 0。
@@ -44,7 +44,7 @@
 级联结构（库内 m2006_motor_update 执行）：位置环（位置式 pid_t，纯 P + 死区）输出速度设定 → 速度环（增量式 pid_inc_t，PI）输出电流设定 → 电流钳位/安全门 → C610 内部电流环。
 
 三模式（`m2006_motor.mode`）：
-- `M2006_MOTOR_MODE_OPEN_LOOP`：电流开环，直通 `m2006_motor.current_setpoint`（Watch 手动设定）。
+- `M2006_MOTOR_MODE_OPEN_LOOP`：电流开环，直通 `m2006_motor.current_setpoint_lsb`（Watch 手动设定）。
 - `M2006_MOTOR_MODE_SPEED`：速度闭环，目标 `m2006_motor.speed_setpoint_rpm`（输出轴 rpm）。
 - `M2006_MOTOR_MODE_POSITION`：位置闭环，目标 `m2006_motor.pos_setpoint_deg`（输出轴度），位置环输出限速 `pos_max_speed_rpm`。
 
@@ -54,7 +54,7 @@
 
 调参顺序：先 SPEED 调速度环（kp 从小到大再加 ki），再 POSITION 调位置环（纯 P 起步、kp 从小增大、加死区防抖）。
 
-PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rpm=0 即不限幅，误差大时速度设定=误差×kp）、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit、设定斜坡 spd_setpoint_rate=0（禁用斜坡，设定直通）。
+PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rpm=0 即不限幅，误差大时速度设定=误差×kp）、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit_lsb、设定斜坡 spd_setpoint_rate=0（禁用斜坡，设定直通）。
 
 ## 七、本工程接线方式与多电机/多 CAN 复用
 

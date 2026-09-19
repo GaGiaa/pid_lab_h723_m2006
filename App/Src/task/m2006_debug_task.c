@@ -9,7 +9,7 @@
   *           ch0  tick               RTOS 毫秒时间戳（健康检查/丢帧检测）
   *           ch1  speed_setpoint_rpm 速度设定（速度环阶跃输入）
   *           ch2  speed_feedback_rpm 速度反馈（速度环=外环反馈；位置环=内环跟踪）
-  *           ch3  output_current     最终下发电流（看饱和/抖振）
+  *           ch3  output_current_lsb 最终下发电流 LSB（看饱和/抖振）
   *           ch4  pos_feedback_deg   位置反馈（位置环外环反馈）
   *           ch5  pos_setpoint_deg   位置设定（位置环阶跃输入）
   *           ch6  speed_cmd_rpm      速度指令（位置环输出，判内外环责任）
@@ -49,7 +49,7 @@ void m2006_debug_task_entry(void *argument)
     values[0] = (float)osKernelGetTickCount();
     values[1] = m2006_motor.speed_setpoint_rpm;
     values[2] = m2006_motor.speed_feedback_rpm;
-    values[3] = (float)m2006_motor.output_current;
+    values[3] = (float)m2006_motor.output_current_lsb;
     values[4] = m2006_motor.pos_feedback_deg;
     values[5] = m2006_motor.pos_setpoint_deg;
     values[6] = m2006_motor.speed_cmd_rpm;
