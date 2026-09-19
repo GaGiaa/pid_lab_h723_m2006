@@ -20,6 +20,7 @@
 - 验证登记机制（方案 1+2）：交接文档 §二 新增"验证状态登记表"（功能项/状态/日期/代码基线/备注，粒度到功能子项，权威来源），并约定一句话同步话术（`验证：<功能>，<通过/失败>，<日期>`），AI 收到即更新登记表并回执。登记：M2006 开环/速度环/位置环用户手动实测通过（PID 参数待精调），安全门用户不记得是否测过按未验证计，VOFA 多通道波形待上板。
 - 已知限制：M2006 开环/速度环/位置环已实测通过；VOFA 多通道波形已实测通过（2026-09-18）；安全门（超时/钳位/超速）尚未验证（验证步骤见 `docs/m2006_hardware.md` §四）。
 - 电流字段命名整改：电流类字段统一带单位后缀——`current_setpoint` → `current_setpoint_lsb`、`current_limit` → `current_limit_lsb`、`current_cmd_raw` → `current_cmd_raw_lsb`、`output_current` → `output_current_lsb`；注释全部补单位与换算（1000 LSB = 1A，满量程 ±10000 = ±10A，M2006 额定 3A = 3000）；`m2006_protocol.h` 新增换算宏 `M2006_PROTOCOL_CURRENT_LSB_PER_AMP (1000)` 作为单一事实来源。联动：motor.c、库测试（motor/bus）、主工程 m2006_debug_task（ch3 字段名）、m2006_hardware.md、交接文档同步。行为零变化，验证：motor 37 / bus 48 / 命名 PASS / Keil 0E0W。
+- 默认电流钳位下调：`M2006_MOTOR_CURRENT_LIMIT_DEFAULT` 10000 → 8000（10A → 8A，低于电调满量程 10A）；motor 单测默认值与钳位断言、m2006_motor.h 注释、m2006_hardware.md 描述同步。行为变化（初始化后 current_limit_lsb 默认 8A），验证：motor 37 / bus 48 / 命名 PASS / Keil 0E0W。
 
 ## 2026 年 9 月 6 日
 

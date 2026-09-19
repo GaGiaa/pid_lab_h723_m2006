@@ -24,7 +24,7 @@
 ## 四、Keil 调试方法（Debug 界面 Watch 窗口）
 
 - 一键添加结构体实例 `m2006_motor`（本工程电机实例，m2006_control_task.c 定义），即可查看并修改全部配置与观测变量。
-- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint_lsb`（开环目标电流，LSB，±10000 = ±10A，1000 LSB = 1A）、`m2006_motor.current_limit_lsb`（电流钳位，LSB，默认 10000 = 10A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
+- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint_lsb`（开环目标电流，LSB，±10000 = ±10A，1000 LSB = 1A）、`m2006_motor.current_limit_lsb`（电流钳位，LSB，默认 8000 = 8A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
 - 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current_lsb`（实际下发电流，LSB，1000 LSB=1A）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw_lsb`、`pos_in_deadband`。
 - 总线调试：Keil Watch 添加 `m2006_hal_bus` 查看总线实例（motor_slots 槽位挂载）；`m2006_hal_tx_fail_count` 查看发送失败计数。
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint_lsb`（如 500 = 0.5A）开始缓慢增大。
@@ -32,7 +32,7 @@
 
 ## 五、安全保护（m2006_motor_update 内自动执行，参数可调）
 
-- 电流钳位：输出电流限制在 ±m2006_motor.current_limit_lsb（默认 ±10000 = 10A，电调满量程；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
+- 电流钳位：输出电流限制在 ±m2006_motor.current_limit_lsb（默认 ±8000 = 8A，低于电调满量程 10A；M2006 额定 3A，带负载/上线前应收回到 ±3000）。
 - 反馈超时：连续 20ms 未收到反馈（`m2006_motor.is_rx_timeout` 置 1）时输出强制置 0（1kHz 下正常每 1ms 一帧反馈）；tick 由调用者传入，超时判定在库内可测。
 - 超速保护：speed_limit_rpm > 0 时，输出轴转速绝对值超过它则输出置 0；speed_limit_rpm = 0 表示关闭超速保护（调试期默认关闭）。
 - 断使能：m2006_motor.is_enabled 为 0 时输出恒为 0。
