@@ -24,7 +24,7 @@
 ## 四、Keil 调试方法（Debug 界面 Watch 窗口）
 
 - 一键添加结构体实例 `m2006_motor`（本工程电机实例，m2006_control_task.c 定义），即可查看并修改全部配置与观测变量。
-- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint_lsb`（开环目标电流，LSB，±10000 = ±10A，1000 LSB = 1A）、`m2006_motor.current_limit_lsb`（电流钳位，LSB，默认 8000 = 8A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 1.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.5°）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 30/5）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
+- 可写成员（配置区）：`m2006_motor.is_enabled`（0 断输出/1 使能）、`m2006_motor.mode`（0=开环 / 1=速度环 / 2=位置环）、`m2006_motor.current_setpoint_lsb`（开环目标电流，LSB，±10000 = ±10A，1000 LSB = 1A）、`m2006_motor.current_limit_lsb`（电流钳位，LSB，默认 8000 = 8A，调试放开，带负载/上线前应收回 3000 = 3A）、`m2006_motor.speed_setpoint_rpm`（速度环目标，输出轴 rpm）、`m2006_motor.pos_setpoint_deg`（位置环目标，输出轴度）、`m2006_motor.speed_limit_rpm`（输出轴超速保护阈值，默认 0 = 关闭，>0 时生效）、`m2006_motor.pos_pid.kp`（位置环增益，默认 3.0）、`m2006_motor.pos_deadband_deg`（位置死区，默认 0.1°）、`m2006_motor.pos_max_speed_rpm`（位置环输出限速，默认 300 rpm）、`m2006_motor.spd_pid.kp/ki`（速度环增益，默认 200/18000）、`m2006_motor.spd_setpoint_rate`（速度设定斜坡，默认 0 禁用）。
 - 只读成员（观测区）：`angle_raw`（转子角度编码 0~8191）、`speed_rpm`（转子转速，÷36 为输出轴）、`torque_raw`（反馈电流编码，1000 LSB=1A）、`angle_total_deg`（输出轴累计角度°，多圈不回绕）、`speed_out_rpm`（输出轴转速）、`torque_out_nm`（输出轴力矩）、`output_current_lsb`（实际下发电流，LSB，1000 LSB=1A）、`rx_msg_count`（已收反馈帧数）、`is_rx_timeout`（反馈超时标志）、`pos_feedback_deg`、`speed_feedback_rpm`、`speed_cmd_rpm`、`current_cmd_raw_lsb`、`pos_in_deadband`。
 - 总线调试：Keil Watch 添加 `m2006_hal_bus` 查看总线实例（motor_slots 槽位挂载）；`m2006_hal_tx_fail_count` 查看发送失败计数。
 - 调试流程：烧录后运行，先在 Watch 中确认 `m2006_motor.rx_msg_count` 持续增长（说明收到电调反馈）；再把 `m2006_motor.is_enabled` 置 1，从较小的 `m2006_motor.current_setpoint_lsb`（如 500 = 0.5A）开始缓慢增大。
@@ -54,7 +54,7 @@
 
 调参顺序：先 SPEED 调速度环（kp 从小到大再加 ki），再 POSITION 调位置环（纯 P 起步、kp 从小增大、加死区防抖）。
 
-PID 初值：位置环 kp=1.0、ki=0、kd=0、输出不限幅（pos_max_speed_rpm=0 即不限幅，误差大时速度设定=误差×kp）、死区 0.5°；速度环 kp=30.0、ki=5.0、kd=0、输出 ±current_limit_lsb、设定斜坡 spd_setpoint_rate=0（禁用斜坡，设定直通）。
+PID 初值（上板实测整定后固化）：位置环 kp=3.0、ki=0、kd=0、输出限幅 pos_max_speed_rpm=300、死区 0.1°；速度环 kp=200.0、ki=18000.0、kd=0、输出 ±current_limit_lsb、设定斜坡 spd_setpoint_rate=0（禁用斜坡，设定直通）。
 
 ## 七、本工程接线方式与多电机/多 CAN 复用
 
